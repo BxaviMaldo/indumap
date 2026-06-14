@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, PanResponder, Image,
+  SafeAreaView, PanResponder, Image, TextInput,
 } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber/native';
 import { DataTexture, RGBAFormat, RepeatWrapping } from 'three';
@@ -9,6 +9,7 @@ import { DataTexture, RGBAFormat, RepeatWrapping } from 'three';
 // ─── COLORES DE BLOQUES ────────────────────────────────────────────────────────
 const COLORS: Record<string, string> = {
   A: '#00A9E0', B: '#11806A', C: '#F08D1E', D: '#D5A021', E: '#ad0ca2',
+  BAR: '#8B3A0F', BAÑOS: '#2A6F97',
 };
 
 // ─── ESTADO DE CÁMARA (module-level para performance) ─────────────────────────
@@ -60,7 +61,7 @@ const WIN_H  = FH * 0.64;  // alto ventana
 
 // ─── BAY: espacio entre columnas con ventana ──────────────────────────────────
 function Bay({ bx, y, bw, D }: { bx: number; y: number; bw: number; D: number }) {
-  const fz  = D / 2;        // cara frontal del edificio
+  const fz  = D / 2;
   const wW  = bw - COL_W - 0.06;
   return (
     <group>
@@ -69,19 +70,16 @@ function Bay({ bx, y, bw, D }: { bx: number; y: number; bw: number; D: number })
         <boxGeometry args={[COL_W, FH + SH * 0.6, COL_P + 0.05]} />
         <meshStandardMaterial map={TX.col} roughness={0.72} />
       </mesh>
-
       {/* Muro infill detrás de la ventana */}
       <mesh position={[bx, y + FH / 2, fz - 0.12]} castShadow>
         <boxGeometry args={[wW, FH, 0.18]} />
         <meshStandardMaterial map={TX.wall} roughness={0.88} />
       </mesh>
-
       {/* Marco exterior de ventana */}
       <mesh position={[bx, y + FH * 0.54, fz + 0.02]}>
         <boxGeometry args={[wW - 0.04, WIN_H + 0.08, 0.06]} />
         <meshStandardMaterial map={TX.winF} roughness={0.7} />
       </mesh>
-
       {/* Vidrio oscuro */}
       <mesh position={[bx, y + FH * 0.54, fz + 0.06]}>
         <boxGeometry args={[wW - 0.12, WIN_H, 0.05]} />
@@ -90,29 +88,14 @@ function Bay({ bx, y, bw, D }: { bx: number; y: number; bw: number; D: number })
     </group>
   );
 }
-// ─── WindowFloor: Ventada Unificada Bloque B ──────────────────────────────────
-function WindowFloor({ y, W, D }: { y: number; W: number; D: number }) {
-  const WIN_H = FH * 0.64;
-  // D / 2 posiciona el vidrio en la cara frontal del bloque
-  return (
-    <mesh position={[0, y + FH * 0.54, D / 2 + 0.06]}>
-      <boxGeometry args={[W - 0.2, WIN_H, 0.05]} />
-      <meshStandardMaterial 
-        map={TX.win} 
-        roughness={0.08} 
-        metalness={0.38} 
-      />
-    </mesh>
-  );
-}
 
 // ─── SECCIÓN RECTANGULAR DE EDIFICIO ─────────────────────────────────────────
 function BSection({
-  pos, rot, W, D, floors, bays, sel,
+  pos, rot, W, D, floors, bays, sel, hasDoor = false,
 }: {
   pos: [number, number, number];
   rot?: [number, number, number];
-  W: number; D: number; floors: number; bays: number; sel: boolean;
+  W: number; D: number; floors: number; bays: number; sel: boolean; hasDoor?: boolean;
 }) {
   const bw     = W / bays;
   const totalH = floors * ST + SH;
@@ -147,6 +130,14 @@ function BSection({
         ))
       )}
 
+      {/* Puerta central en fachada — solo si hasDoor */}
+      {hasDoor && (
+        <mesh position={[0, SH + FH * 0.38, D / 2 + 0.04]} castShadow>
+          <boxGeometry args={[0.85, FH * 0.72, 0.07]} />
+          <meshStandardMaterial color="#3A2010" roughness={0.85} />
+        </mesh>
+      )}
+
       {/* Columna final (cierre derecho) */}
       {Array.from({ length: floors }, (_, fi) => (
         <mesh key={`ecol${fi}`} position={[W / 2 - COL_W / 2, fi * ST + SH + FH / 2, D / 2 + COL_P / 2]} castShadow>
@@ -158,11 +149,11 @@ function BSection({
       {/* Techo plano con pretil */}
       <mesh position={[0, totalH + SH * 0.5 + 0.1, 0]}>
         <boxGeometry args={[W + 0.45, 0.28, D + 0.45]} />
-        <meshStandardMaterial map={TX.roof} roughness={0.82} />
+        <meshStandardMaterial color="#001D41" roughness={0.6} />
       </mesh>
       <mesh position={[0, totalH + SH * 0.5 + 0.26, 0]}>
         <boxGeometry args={[W + 0.58, 0.16, D + 0.58]} />
-        <meshStandardMaterial map={TX.col} roughness={0.78} />
+        <meshStandardMaterial color="#001525" roughness={0.6} />
       </mesh>
     </group>
   );
@@ -186,12 +177,12 @@ function Tree({ p }: { p: [number, number, number] }) {
 
 // ─── BLOQUE GENÉRICO SELECCIONABLE ───────────────────────────────────────────
 function SBlock({
-  id, pos, rot, W, D, floors, bays, sel, onPress,
+  id, pos, rot, W, D, floors, bays, sel, onPress, hasDoor,
 }: {
   id: string; pos: [number,number,number];
   rot?: [number,number,number];
   W: number; D: number; floors: number; bays: number;
-  sel: boolean; onPress: () => void;
+  sel: boolean; onPress: () => void; hasDoor?: boolean;
 }) {
   const ref = useRef<any>(null);
   const sc  = useRef(1);
@@ -201,7 +192,7 @@ function SBlock({
   });
   return (
     <group ref={ref} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
-      <BSection pos={pos} rot={rot} W={W} D={D} floors={floors} bays={bays} sel={sel} />
+      <BSection pos={pos} rot={rot} W={W} D={D} floors={floors} bays={bays} sel={sel} hasDoor={hasDoor} />
     </group>
   );
 }
@@ -309,24 +300,120 @@ function BlockE({ sel, onPress }: { sel: boolean; onPress: () => void }) {
   );
 }
 
+// ─── BAÑOS ────────────────────────────────────────────────────────────────────
+function Banios({ sel, onPress }: { sel: boolean; onPress: () => void }) {
+  const W = 3.2, Dp = 3.2, H = FH + SH;
+  const ref = useRef<any>(null);
+  const sc  = useRef(1);
+  useFrame(() => {
+    sc.current += ((sel ? 1.06 : 1) - sc.current) * 0.1;
+    if (ref.current) ref.current.scale.y = sc.current;
+  });
+  return (
+    <group ref={ref} position={[-15, 0, -9.5]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
+      {/* Cuerpo */}
+      <mesh position={[0, H / 2, 0]} castShadow>
+        <boxGeometry args={[W, H, Dp]} />
+        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#C8E8FF' : '#ffffff'} />
+      </mesh>
+      {/* Losa base */}
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[W + 0.2, SH, Dp + 0.2]} />
+        <meshStandardMaterial map={TX.slab} roughness={0.76} />
+      </mesh>
+      {/* Techo */}
+      <mesh position={[0, H + 0.14, 0]}>
+        <boxGeometry args={[W + 0.35, 0.22, Dp + 0.35]} />
+        <meshStandardMaterial color="#001D41" roughness={0.6} />
+      </mesh>
+      {/* Puerta izquierda (señores) */}
+      <mesh position={[-0.65, SH + H * 0.36, Dp / 2 + 0.03]}>
+        <boxGeometry args={[0.72, H * 0.68, 0.06]} />
+        <meshStandardMaterial color="#3A2010" roughness={0.85} />
+      </mesh>
+      {/* Puerta derecha (señoras) */}
+      <mesh position={[0.65, SH + H * 0.36, Dp / 2 + 0.03]}>
+        <boxGeometry args={[0.72, H * 0.68, 0.06]} />
+        <meshStandardMaterial color="#3A2010" roughness={0.85} />
+      </mesh>
+      {/* Separador central entre puertas */}
+      <mesh position={[0, SH + H * 0.4, Dp / 2 + 0.04]}>
+        <boxGeometry args={[0.1, H * 0.72, 0.05]} />
+        <meshStandardMaterial map={TX.col} roughness={0.7} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── BAR ──────────────────────────────────────────────────────────────────────
+function Bar({ sel, onPress }: { sel: boolean; onPress: () => void }) {
+  const W = 4.5, Dp = 2.6, H = FH + SH;
+  const ref = useRef<any>(null);
+  const sc  = useRef(1);
+  useFrame(() => {
+    sc.current += ((sel ? 1.06 : 1) - sc.current) * 0.1;
+    if (ref.current) ref.current.scale.y = sc.current;
+  });
+  // Justo al lado izquierdo del Bloque A (A en x=-6.5, rot π/2 → ocupa z de -5.5 a 3.5)
+  return (
+    <group ref={ref} position={[-10.5, 0, 2]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
+      {/* Cuerpo */}
+      <mesh position={[0, H / 2, 0]} castShadow>
+        <boxGeometry args={[W, H, Dp]} />
+        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#FFE0C8' : '#FFF5EE'} />
+      </mesh>
+      {/* Losa base */}
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[W + 0.2, SH, Dp + 0.2]} />
+        <meshStandardMaterial map={TX.slab} roughness={0.76} />
+      </mesh>
+      {/* Techo */}
+      <mesh position={[0, H + 0.14, 0]}>
+        <boxGeometry args={[W + 0.4, 0.22, Dp + 0.4]} />
+        <meshStandardMaterial color="#001D41" roughness={0.6} />
+      </mesh>
+      {/* Toldo */}
+      <mesh position={[0, H - FH * 0.15, Dp / 2 + 0.5]} rotation={[0.28, 0, 0]}>
+        <boxGeometry args={[W, 0.07, 1.1]} />
+        <meshStandardMaterial color="#8B3A0F" roughness={0.7} />
+      </mesh>
+      {/* Puerta central */}
+      <mesh position={[0, SH + H * 0.36, Dp / 2 + 0.03]}>
+        <boxGeometry args={[0.8, H * 0.68, 0.06]} />
+        <meshStandardMaterial color="#3A2010" roughness={0.85} />
+      </mesh>
+      {/* Ventana izquierda */}
+      <mesh position={[-1.4, SH + H * 0.55, Dp / 2 + 0.03]}>
+        <boxGeometry args={[0.9, H * 0.45, 0.05]} />
+        <meshStandardMaterial map={TX.win} roughness={0.1} metalness={0.3} />
+      </mesh>
+      {/* Ventana derecha */}
+      <mesh position={[1.4, SH + H * 0.55, Dp / 2 + 0.03]}>
+        <boxGeometry args={[0.9, H * 0.45, 0.05]} />
+        <meshStandardMaterial map={TX.win} roughness={0.1} metalness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
 // ─── CONFIG BLOQUES ───────────────────────────────────────────────────────────
 // A: vertical izquierda | B: horizontal centro | C: vertical derecha
-// D: al oeste del camino lateral, fachada hacia A,B,C (+X)
+// D: al oeste del camino lateral, hasDoor en el centro
 // E: U-shape independiente (componente BlockE)
 const BLOQUES: {
   id: string;
   pos: [number,number,number];
   rot?: [number,number,number];
-  W: number; D: number; floors: number; bays: number;
+  W: number; D: number; floors: number; bays: number; hasDoor?: boolean;
 }[] = [
   // Bloque A — vertical, izquierda
-  { id: 'A', pos: [-6.5, 0, -1],  rot: [0,  Math.PI / 2, 0], W: 9,  D: 2.8, floors: 3, bays: 5 },
+  { id: 'A', pos: [-6.5, 0, -1],   rot: [0,  Math.PI / 2, 0], W: 9,  D: 2.8, floors: 3, bays: 5 },
   // Bloque B — horizontal, centro
-  { id: 'B', pos: [0,    0, -4.1],                             W: 11, D: 2.8, floors: 3, bays: 7 },
+  { id: 'B', pos: [0,    0, -4.1],                              W: 11, D: 2.8, floors: 3, bays: 7 },
   // Bloque C — vertical, derecha
-  { id: 'C', pos: [6.5,  0, -1],  rot: [0, -Math.PI / 2, 0], W: 9,  D: 2.8, floors: 3, bays: 5 },
-  // Bloque D — al oeste del camino (x < -13.5), fachada hacia +X (hacia A,B,C)
-  { id: 'D', pos: [-16.5, 0, -15], rot: [0,  Math.PI / 2, 0], W: 12,  D: 2.8, floors: 2, bays: 9 },
+  { id: 'C', pos: [6.5,  0, -1],   rot: [0, -Math.PI / 2, 0], W: 9,  D: 2.8, floors: 3, bays: 5 },
+  // Bloque D — con puerta central en fachada
+  { id: 'D', pos: [-16.5, 0, -15], rot: [0,  Math.PI / 2, 0], W: 12, D: 2.8, floors: 2, bays: 9, hasDoor: true },
 ];
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
@@ -338,7 +425,8 @@ type Props = {
 };
 
 export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, onLogout }: Props) {
-  const [sel, setSel] = useState<string | null>(null);
+  const [sel, setSel]       = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const lastT  = useRef({ x: 0, y: 0 });
   const pinchD = useRef(0);
   const toggle = (id: string) => setSel(p => p === id ? null : id);
@@ -377,7 +465,13 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
     })
   ).current;
 
-  const selFloors = sel === 'E' ? 2 : BLOQUES.find(b => b.id === sel)?.floors ?? 0;
+  const selFloors = sel === 'E' ? 2
+    : sel === 'BAR' || sel === 'BAÑOS' ? 1
+    : BLOQUES.find(b => b.id === sel)?.floors ?? 0;
+
+  const selLabel = sel === 'BAR' ? 'Bar'
+    : sel === 'BAÑOS' ? 'Baños'
+    : sel ? `Bloque ${sel}` : '';
 
   return (
     <SafeAreaView style={s.safe}>
@@ -400,6 +494,17 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
 
       <View style={s.tip}>
         <Text style={s.tipTxt}>Arrastra para rotar · Pellizca para zoom · Toca un bloque</Text>
+      </View>
+
+      {/* Barra de búsqueda */}
+      <View style={s.searchWrap}>
+        <TextInput
+          style={s.searchInput}
+          placeholder="Buscar bloque o espacio..."
+          placeholderTextColor="#64748B"
+          value={search}
+          onChangeText={setSearch}
+        />
       </View>
 
       {/* Canvas 3D */}
@@ -434,17 +539,22 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
               W={b.W} D={b.D}
               floors={b.floors}
               bays={b.bays}
+              hasDoor={b.hasDoor}
               sel={sel === b.id}
               onPress={() => toggle(b.id)}
             />
           ))}
           {/* Bloque E — U-shape independiente */}
           <BlockE sel={sel === 'E'} onPress={() => toggle('E')} />
+          {/* Baños — entre D y E */}
+          <Banios sel={sel === 'BAÑOS'} onPress={() => toggle('BAÑOS')} />
+          {/* Bar — al lado del Bloque A */}
+          <Bar sel={sel === 'BAR'} onPress={() => toggle('BAR')} />
         </Canvas>
 
         {/* Leyenda */}
         <View style={[s.legend, { bottom: sel ? 20 : 40 }]}>
-          {['A', 'B', 'C', 'D', 'E'].map(id => (
+          {(['A','B','C','D','E'] as string[]).map(id => (
             <TouchableOpacity
               key={id}
               style={[s.chip, sel === id && { borderColor: COLORS[id], backgroundColor: COLORS[id] + '38' }]}
@@ -456,6 +566,20 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={[s.chip, sel === 'BAR' && { borderColor: COLORS.BAR, backgroundColor: COLORS.BAR + '38' }]}
+            onPress={() => toggle('BAR')}
+          >
+            <View style={[s.dot, { backgroundColor: COLORS.BAR }]} />
+            <Text style={[s.chipTxt, sel === 'BAR' && { color: '#fff', fontWeight: '700' }]}>Bar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.chip, sel === 'BAÑOS' && { borderColor: COLORS.BAÑOS, backgroundColor: COLORS.BAÑOS + '38' }]}
+            onPress={() => toggle('BAÑOS')}
+          >
+            <View style={[s.dot, { backgroundColor: COLORS.BAÑOS }]} />
+            <Text style={[s.chipTxt, sel === 'BAÑOS' && { color: '#fff', fontWeight: '700' }]}>Baños</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -465,11 +589,11 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
           <View style={[s.pBar, { backgroundColor: COLORS[sel] }]} />
           <View style={s.pBody}>
             <View>
-              <Text style={s.pTitle}>Bloque {sel}</Text>
+              <Text style={s.pTitle}>{selLabel}</Text>
               <Text style={s.pSub}>
-                {selFloors === 3
-                  ? 'Planta Baja · 1ª Planta · 2ª Planta'
-                  : 'Planta Baja · Planta Alta'}
+                {selFloors === 3 ? 'Planta Baja · 1ª Planta · 2ª Planta'
+                  : selFloors === 2 ? 'Planta Baja · Planta Alta'
+                  : 'Planta Baja'}
               </Text>
             </View>
             <TouchableOpacity
@@ -496,8 +620,10 @@ const s = StyleSheet.create({
   hSub:    { color: '#94A3B8', fontSize: 11 },
   xBtn:    { width: 32, height: 32, borderRadius: 16, backgroundColor: '#ffffff15', alignItems: 'center', justifyContent: 'center' },
   xTxt:    { color: '#fff', fontSize: 14 },
-  tip:     { alignItems: 'center', paddingVertical: 5, backgroundColor: '#002255' },
-  tipTxt:  { color: '#64748B', fontSize: 10 },
+  tip:        { alignItems: 'center', paddingVertical: 5, backgroundColor: '#002255' },
+  tipTxt:     { color: '#64748B', fontSize: 10 },
+  searchWrap: { backgroundColor: '#002255', paddingHorizontal: 14, paddingBottom: 8 },
+  searchInput:{ backgroundColor: '#001840', borderRadius: 10, borderWidth: 1, borderColor: '#1E3A5F', color: '#fff', fontSize: 13, paddingHorizontal: 14, paddingVertical: 8 },
   cv:      { flex: 1 },
   legend:  { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10 },
   chip:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#ffffff10', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#ffffff20' },
