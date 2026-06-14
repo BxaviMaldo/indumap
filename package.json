@@ -12,10 +12,11 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "expo": "~54.0.34",
+    "expo-asset": "~12.0.13",
     "expo-dev-client": "~6.0.21",
+    "expo-file-system": "~19.0.23",
     "expo-gl": "~16.0.10",
     "expo-status-bar": "~3.0.9",
-    "expo-three": "^8.0.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "three": "^0.166.1"
