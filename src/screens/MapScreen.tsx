@@ -12,7 +12,7 @@ const COLORS: Record<string, string> = {
 };
 
 // ─── ESTADO DE CÁMARA (module-level para performance) ─────────────────────────
-const cam = { rotX: -0.42, rotY: 0.55, dist: 42 };
+const cam = { rotX: -0.42, rotY: 0.3, dist: 55 };
 
 // ─── TEXTURAS PROCEDURALES ────────────────────────────────────────────────────
 // Genera textura DataTexture con ruido, funciona sin archivos de imagen
@@ -88,6 +88,21 @@ function Bay({ bx, y, bw, D }: { bx: number; y: number; bw: number; D: number })
         <meshStandardMaterial map={TX.win} roughness={0.08} metalness={0.38} />
       </mesh>
     </group>
+  );
+}
+// ─── WindowFloor: Ventada Unificada Bloque B ──────────────────────────────────
+function WindowFloor({ y, W, D }: { y: number; W: number; D: number }) {
+  const WIN_H = FH * 0.64;
+  // D / 2 posiciona el vidrio en la cara frontal del bloque
+  return (
+    <mesh position={[0, y + FH * 0.54, D / 2 + 0.06]}>
+      <boxGeometry args={[W - 0.2, WIN_H, 0.05]} />
+      <meshStandardMaterial 
+        map={TX.win} 
+        roughness={0.08} 
+        metalness={0.38} 
+      />
+    </mesh>
   );
 }
 
@@ -196,7 +211,7 @@ function Ground() {
   return (
     <>
       {/* Césped principal */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -20]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -18]} receiveShadow>
         <planeGeometry args={[80, 80]} />
         <meshStandardMaterial map={TX.gnd} roughness={0.95} color="#3A8A28" />
       </mesh>
@@ -219,7 +234,6 @@ function Ground() {
         <planeGeometry args={[2.2, 11]} />
         <meshStandardMaterial map={TX.path} roughness={0.88} />
       </mesh>
-
 
       {/* Plaza frontal 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
@@ -258,30 +272,61 @@ function CamCtrl() {
       Math.sin(-cam.rotX) * cam.dist,
       Math.cos(cam.rotY) * cam.dist * cx,
     );
-    camera.lookAt(-6, 2.5, -5);
+    camera.lookAt(0, 2.5, -2);
   });
   return null;
 }
 
+// ─── BLOQUE E — forma de U, abre hacia +X (hacia A,B,C) ──────────────────────
+function BlockE({ sel, onPress }: { sel: boolean; onPress: () => void }) {
+  const ref = useRef<any>(null);
+  const sc  = useRef(1);
+  useFrame(() => {
+    sc.current += ((sel ? 1.06 : 1) - sc.current) * 0.1;
+    if (ref.current) ref.current.scale.y = sc.current;
+  });
+  return (
+    <group ref={ref} position={[-10, 0, -17]} rotation={[0, Math.PI / 2, 0]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
+      {/* Espalda de la U — corre a lo largo de Z, fachada hacia +X */}
+      <BSection pos={[-27.1, 0, -10]} rot={[0, Math.PI / 2, 0]} W={7} D={2.8} floors={2} bays={4} sel={sel} />
+
+      {/* Ala superior — corre a lo largo de X, fachada hacia -Z (interior U) */}
+      <BSection pos={[-21, 0, -5]}  rot={[0, Math.PI, 0]}     W={15}  D={2.8} floors={2} bays={9} sel={sel} />
+      {/* Fachada exterior */}
+      <BSection pos={[-21, 0, -3.6]} rot={[0, 0, 0]} W={15} D={1.4} floors={2} bays={9} sel={sel} />
+
+      {/* Ala inferior — corre a lo largo de X, fachada hacia +Z (interior U) */}
+      <BSection pos={[-21, 0, -15]} rot={[0, 0, 0]}            W={15}  D={2.8} floors={2} bays={9} sel={sel} />
+      {/* Fachada exterior */}
+      <BSection pos={[-21, 0, -16.4]} rot={[0, Math.PI, 0]} W={15} D={1.4} floors={2} bays={9} sel={sel} />
+
+      {/* Patio interior */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-21, 0.04, -10]} receiveShadow>
+        <planeGeometry args={[5.5, 8]} />
+        <meshStandardMaterial map={TX.gnd} roughness={0.95} color="#3A8A28" />
+      </mesh>
+    </group>
+  );
+}
+
 // ─── CONFIG BLOQUES ───────────────────────────────────────────────────────────
 // A: vertical izquierda | B: horizontal centro | C: vertical derecha
-// D y E: bloques independientes
+// D: al oeste del camino lateral, fachada hacia A,B,C (+X)
+// E: U-shape independiente (componente BlockE)
 const BLOQUES: {
   id: string;
   pos: [number,number,number];
   rot?: [number,number,number];
   W: number; D: number; floors: number; bays: number;
 }[] = [
-  // Bloque A — vertical, izquierda, fachada hacia afuera (-X)
-  { id: 'A', pos: [-6.5, 0, -1],   rot: [0,  Math.PI / 2, 0], W: 9,   D: 2.8, floors: 3, bays: 5 },
+  // Bloque A — vertical, izquierda
+  { id: 'A', pos: [-6.5, 0, -1],  rot: [0,  Math.PI / 2, 0], W: 9,  D: 2.8, floors: 3, bays: 5 },
   // Bloque B — horizontal, centro
-  { id: 'B', pos: [0,    -0,  -4.1],                                W: 11,  D: 2.8, floors: 3, bays: 7 },
-  // Bloque C — vertical, derecha, fachada hacia afuera (+X)
-  { id: 'C', pos: [6.5,  0, -1],   rot: [0, -Math.PI / 2, 0], W: 9,   D: 2.8, floors: 3, bays: 5 },
-  // Bloque D — derecha del camino lateral (x > -13.5), fachada hacia el camino (-X)
-  { id: 'D', pos: [-10.8, 0, -10], rot: [0, -Math.PI / 2, 0], W: 10, D: 2.8, floors: 2, bays: 6 },
-  // Bloque E — izquierda del camino lateral (x < -13.5), fachada hacia el camino (+X), enfrentado a D
-  { id: 'E', pos: [-16.2, 0, -10], rot: [0,  Math.PI / 2, 0], W: 12, D: 2.8, floors: 2, bays: 7 },
+  { id: 'B', pos: [0,    0, -4.1],                             W: 11, D: 2.8, floors: 3, bays: 7 },
+  // Bloque C — vertical, derecha
+  { id: 'C', pos: [6.5,  0, -1],  rot: [0, -Math.PI / 2, 0], W: 9,  D: 2.8, floors: 3, bays: 5 },
+  // Bloque D — al oeste del camino (x < -13.5), fachada hacia +X (hacia A,B,C)
+  { id: 'D', pos: [-16.5, 0, -15], rot: [0,  Math.PI / 2, 0], W: 12,  D: 2.8, floors: 2, bays: 9 },
 ];
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
@@ -332,7 +377,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
     })
   ).current;
 
-  const selFloors = BLOQUES.find(b => b.id === sel)?.floors ?? 0;
+  const selFloors = sel === 'E' ? 2 : BLOQUES.find(b => b.id === sel)?.floors ?? 0;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -379,7 +424,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
           <CamCtrl />
           <Ground />
 
-          {/* Bloques A (izq vertical), B (centro), C (der vertical), D, E */}
+          {/* Bloques A, B, C (3 pisos) y D (2 pisos) */}
           {BLOQUES.map(b => (
             <SBlock
               key={b.id}
@@ -393,6 +438,8 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
               onPress={() => toggle(b.id)}
             />
           ))}
+          {/* Bloque E — U-shape independiente */}
+          <BlockE sel={sel === 'E'} onPress={() => toggle('E')} />
         </Canvas>
 
         {/* Leyenda */}
