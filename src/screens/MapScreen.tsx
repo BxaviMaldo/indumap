@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, PanResponder, Image, TextInput,
 } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber/native';
+import { getAllEspacios } from '../services/espacios';
+import type { Espacio } from '../types/espacio';
 import { DataTexture, RGBAFormat, RepeatWrapping } from 'three';
 
 // ─── COLORES DE BLOQUES ────────────────────────────────────────────────────────
@@ -106,7 +108,7 @@ function BSection({
       {/* Cuerpo trasero del edificio (masa principal) */}
       <mesh position={[0, totalH / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[W, totalH, D]} />
-        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#dad0ff' : '#ffffff'} />
+        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#F08D1E' : '#ffffff'} />
       </mesh>
 
       {/* Losas horizontales entre pisos */}
@@ -310,11 +312,11 @@ function Banios({ sel, onPress }: { sel: boolean; onPress: () => void }) {
     if (ref.current) ref.current.scale.y = sc.current;
   });
   return (
-    <group ref={ref} position={[-16.5, 0, -6.5]} rotation={[0, Math.PI / 2, 0]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
-      {/* Cuerpo */}
-      <mesh position={[0, H / 2, 0]} castShadow>
+    <group ref={ref} position={[-16.5, 0, -6.5]} rotation={[0, Math.PI / 2, 0]}>
+      {/* Cuerpo — onPointerDown aquí para máxima superficie de tap */}
+      <mesh position={[0, H / 2, 0]} castShadow onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
         <boxGeometry args={[W, H, Dp]} />
-        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#C8E8FF' : '#ffffff'} />
+        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#F08D1E' : '#ffffff'} />
       </mesh>
       {/* Losa base */}
       <mesh position={[0, 0, 0]}>
@@ -356,11 +358,11 @@ function Bar({ sel, onPress }: { sel: boolean; onPress: () => void }) {
   });
   // Justo al lado izquierdo del Bloque A (A en x=-6.5, rot π/2 → ocupa z de -5.5 a 3.5)
   return (
-    <group ref={ref} position={[-9.8, 0, -4]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
-      {/* Cuerpo */}
-      <mesh position={[0, H / 2, 0]} castShadow>
+    <group ref={ref} position={[-9.8, 0, -4]}>
+      {/* Cuerpo — onPointerDown aquí para máxima superficie de tap */}
+      <mesh position={[0, H / 2, 0]} castShadow onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
         <boxGeometry args={[W, H, Dp]} />
-        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#FFE0C8' : '#FFF5EE'} />
+        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#F08D1E' : '#FFF5EE'} />
       </mesh>
       {/* Losa base */}
       <mesh position={[0, 0, 0]}>
@@ -425,8 +427,18 @@ type Props = {
 };
 
 export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, onLogout }: Props) {
-  const [sel, setSel]       = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [sel, setSel]           = useState<string | null>(null);
+  const [search, setSearch]     = useState('');
+  const [espacios, setEspacios] = useState<Espacio[]>([]);
+  const [results,  setResults]  = useState<Espacio[]>([]);
+
+  useEffect(() => { getAllEspacios().then(setEspacios); }, []);
+
+  useEffect(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) { setResults([]); return; }
+    setResults(espacios.filter(e => e.nombre.toLowerCase().includes(q)).slice(0, 6));
+  }, [search, espacios]);
   const lastT  = useRef({ x: 0, y: 0 });
   const pinchD = useRef(0);
   const toggle = (id: string) => setSel(p => p === id ? null : id);
@@ -500,11 +512,32 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
       <View style={s.searchWrap}>
         <TextInput
           style={s.searchInput}
-          placeholder="Buscar bloque o espacio..."
+          placeholder="Buscar espacio o curso..."
           placeholderTextColor="#64748B"
           value={search}
           onChangeText={setSearch}
         />
+        {results.length > 0 && (
+          <View style={s.dropdown}>
+            {results.map(e => (
+              <TouchableOpacity
+                key={e.id}
+                style={s.dropItem}
+                onPress={() => {
+                  setSel(e.bloque);
+                  setSearch('');
+                  setResults([]);
+                }}
+              >
+                <View style={[s.dropDot, { backgroundColor: COLORS[e.bloque] ?? '#888' }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.dropName}>{e.nombre}</Text>
+                  <Text style={s.dropSub}>Bloque {e.bloque} · {e.piso}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Canvas 3D */}
@@ -622,8 +655,13 @@ const s = StyleSheet.create({
   xTxt:    { color: '#fff', fontSize: 14 },
   tip:        { alignItems: 'center', paddingVertical: 5, backgroundColor: '#002255' },
   tipTxt:     { color: '#64748B', fontSize: 10 },
-  searchWrap: { backgroundColor: '#002255', paddingHorizontal: 14, paddingBottom: 8 },
-  searchInput:{ backgroundColor: '#001840', borderRadius: 10, borderWidth: 1, borderColor: '#1E3A5F', color: '#fff', fontSize: 13, paddingHorizontal: 14, paddingVertical: 8 },
+  searchWrap:  { backgroundColor: '#002255', paddingHorizontal: 14, paddingBottom: 8, zIndex: 10 },
+  searchInput: { backgroundColor: '#001840', borderRadius: 10, borderWidth: 1, borderColor: '#1E3A5F', color: '#fff', fontSize: 13, paddingHorizontal: 14, paddingVertical: 8 },
+  dropdown:    { backgroundColor: '#001840', borderRadius: 10, borderWidth: 1, borderColor: '#1E3A5F', marginTop: 4, overflow: 'hidden' },
+  dropItem:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
+  dropDot:     { width: 10, height: 10, borderRadius: 5 },
+  dropName:    { color: '#fff', fontSize: 13, fontWeight: '600' },
+  dropSub:     { color: '#64748B', fontSize: 11, marginTop: 1 },
   cv:      { flex: 1 },
   legend:  { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10 },
   chip:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#ffffff10', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#ffffff20' },
