@@ -43,6 +43,63 @@ const FILTER_GROUPS = [
   { key: 'ADMIN', label: 'Oficinas', types: ['OFICINA', 'INFORMATIVA'] as TipoEspacio[] },
 ];
 
+// ─── CONFIGURACIÓN DE LAYOUT POR BLOQUE Y PISO ───────────────────────────────
+// Para agregar, quitar o mover un cuarto: edita este objeto.
+// Clave: 'BLOQUE-PISO'  |  col 'I' = columna izquierda, 'D' = columna derecha
+// El nombre debe contener (parcialmente) el nombre que está en Firestore.
+// Los cuartos que no aparezcan aquí se agregan al final alternando izq/der.
+const LAYOUT_CONFIG: Record<string, Array<{ nombre: string; col: 'I' | 'D' }>> = {
+  'A-PLANTA BAJA': [
+    { nombre: 'Decanato',                    col: 'I' },
+    { nombre: 'Secretar',                    col: 'D' },  // Secretaría
+    { nombre: 'Subdecano',                   col: 'I' },
+    { nombre: 'talento humano',              col: 'D' },  // Dpto. De talento humano
+    { nombre: 'Administración',              col: 'I' },  // Administración de edificio
+    { nombre: 'Sala de docentes',            col: 'D' },
+    { nombre: 'Direcci',                     col: 'I' },  // Dirección de Carrera industrial
+    { nombre: 'conferencias',                col: 'D' },  // Sala de conferencias
+    { nombre: 'Info',                        col: 'D' },
+  ],
+  'A-PRIMERA PLANTA': [
+    { nombre: 'Instituto',                   col: 'I' },  // Instituto de postgrado
+    { nombre: 'Computo',                     col: 'I' },  // Lab Computo 14A
+    { nombre: 'Biblioteca',                  col: 'I' },
+    { nombre: 'profesores',                  col: 'D' },  // Sala de profesores
+    { nombre: 'Secretar',                    col: 'D' },  // Secretaria
+    { nombre: 'Vinculaci',                   col: 'D' },  // Vinculación con la carrera
+  ],
+  'A-SEGUNDA PLANTA': [
+    { nombre: 'Direcci',                     col: 'I' },  // Dirección de carrera
+    { nombre: 'reuni',                       col: 'I' },  // Sala de reunión
+    { nombre: 'Sala de docentes',            col: 'D' },
+    // Los laboratorios (14A 201-206) no están aquí → se distribuyen automáticamente
+  ],
+};
+
+// Usa LAYOUT_CONFIG si existe para la clave bloque+piso; si no, alterna izq/der
+function distributeRooms(rooms: Espacio[], key: string) {
+  const cfg = LAYOUT_CONFIG[key];
+  const left: Espacio[] = [], right: Espacio[] = [];
+
+  if (!cfg) {
+    rooms.forEach((r, i) => (i % 2 === 0 ? left : right).push(r));
+    return { left, right };
+  }
+
+  const used = new Set<string>();
+  cfg.forEach(({ nombre, col }) => {
+    const match = rooms.find(
+      r => r.nombre.toLowerCase().includes(nombre.toLowerCase()) && !used.has(r.id),
+    );
+    if (match) { used.add(match.id); (col === 'I' ? left : right).push(match); }
+  });
+  // Cuartos que no están en la config → alternos al final
+  rooms.filter(r => !used.has(r.id)).forEach((r, i) =>
+    (i % 2 === 0 ? left : right).push(r),
+  );
+  return { left, right };
+}
+
 // ─── PLAN 2D — layout rectangular con dos columnas + pasillo central ─────────
 const PLAN_W = 290;
 const PLAN_H = 380;
@@ -53,14 +110,6 @@ const COL_L = { x: 4,   y: 4, w: 108, h: PLAN_H - 8 };
 const CORRIDOR = { x: 112, y: 4, w: 66, h: PLAN_H - 8 };
 // Columna derecha
 const COL_R = { x: 178, y: 4, w: 108, h: PLAN_H - 8 };
-
-// Separa rooms en columna izquierda (índice par) y derecha (índice impar)
-function distributeRooms(rooms: Espacio[]) {
-  const left:  Espacio[] = [];
-  const right: Espacio[] = [];
-  rooms.forEach((r, i) => (i % 2 === 0 ? left : right).push(r));
-  return { left, right };
-}
 
 function cellRect(col: 'left' | 'right', idx: number, total: number) {
   const col_def = col === 'left' ? COL_L : COL_R;
@@ -123,8 +172,9 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
   );
   const isSearching = q.length > 0;
 
-  // Distribución en el plano (columna izq par, columna der impar)
-  const { left, right } = useMemo(() => distributeRooms(filtrados), [filtrados]);
+  // Distribución usando la config de layout (o alternada si no hay config)
+  const layoutKey = `${bloque}-${piso}`;
+  const { left, right } = useMemo(() => distributeRooms(filtrados, layoutKey), [filtrados, layoutKey]);
 
   const renderCell = (e: Espacio, col: 'left' | 'right', idx: number, total: number) => {
     const r    = cellRect(col, idx, total);
