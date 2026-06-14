@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import LoginScreen from './src/screens/LoginScreen';
 import MapScreen from './src/screens/MapScreen';
+import BloqueScreen from './src/screens/BloqueScreen';
 
 type Pantalla = 'login' | 'mapa' | 'bloque';
 type TipoUsuario = 'visitante' | 'admin';
@@ -39,19 +40,16 @@ export default function App() {
     );
   }
 
-  // Placeholder pantalla de bloque (próximo paso)
+  // Pantalla de detalle de bloque
   return (
-    <View style={s.placeholder}>
-      <Text style={s.back} onPress={() => setPantalla('mapa')}>← Volver al mapa</Text>
-      <Text style={s.title}>Bloque {bloqueSeleccionado}</Text>
-      <Text style={s.sub}>Aquí irán los espacios del bloque</Text>
-    </View>
+    <>
+      <StatusBar style="light" />
+      <BloqueScreen
+        bloque={bloqueSeleccionado}
+        onBack={() => setPantalla('mapa')}
+      />
+    </>
   );
 }
 
-const s = StyleSheet.create({
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' },
-  back:        { position: 'absolute', top: 60, left: 20, color: '#00A9E0', fontSize: 15, fontWeight: '700' },
-  title:       { fontSize: 28, fontWeight: '900', color: '#001D41' },
-  sub:         { fontSize: 14, color: '#475569', marginTop: 8 },
-});
+const s = StyleSheet.create({});

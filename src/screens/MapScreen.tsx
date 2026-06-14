@@ -574,11 +574,11 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
               bays={b.bays}
               hasDoor={b.hasDoor}
               sel={sel === b.id}
-              onPress={() => toggle(b.id)}
+              onPress={() => onSeleccionarBloque(b.id)}
             />
           ))}
           {/* Bloque E — U-shape independiente */}
-          <BlockE sel={sel === 'E'} onPress={() => toggle('E')} />
+          <BlockE sel={sel === 'E'} onPress={() => onSeleccionarBloque('E')} />
           {/* Baños — entre D y E */}
           <Banios sel={sel === 'BAÑOS'} onPress={() => toggle('BAÑOS')} />
           {/* Bar — al lado del Bloque A */}
@@ -616,8 +616,8 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
         </View>
       </View>
 
-      {/* Panel inferior al seleccionar */}
-      {sel && selFloors > 0 && (
+      {/* Panel inferior al seleccionar desde leyenda */}
+      {sel && (
         <View style={s.panel}>
           <View style={[s.pBar, { backgroundColor: COLORS[sel] }]} />
           <View style={s.pBody}>
@@ -629,12 +629,14 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
                   : 'Planta Baja'}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[s.pBtn, { backgroundColor: COLORS[sel] }]}
-              onPress={() => onSeleccionarBloque(sel)}
-            >
-              <Text style={s.pBtnTxt}>Ver espacios →</Text>
-            </TouchableOpacity>
+            {sel !== 'BAR' && sel !== 'BAÑOS' && (
+              <TouchableOpacity
+                style={[s.pBtn, { backgroundColor: COLORS[sel] }]}
+                onPress={() => onSeleccionarBloque(sel)}
+              >
+                <Text style={s.pBtnTxt}>Ver espacios →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
