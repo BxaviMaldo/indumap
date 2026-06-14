@@ -8,11 +8,11 @@ import { DataTexture, RGBAFormat, RepeatWrapping } from 'three';
 
 // ─── COLORES DE BLOQUES ────────────────────────────────────────────────────────
 const COLORS: Record<string, string> = {
-  A: '#00A9E0', B: '#11806A', C: '#F08D1E', D: '#D5A021', E: '#001D41',
+  A: '#00A9E0', B: '#11806A', C: '#F08D1E', D: '#D5A021', E: '#ad0ca2',
 };
 
 // ─── ESTADO DE CÁMARA (module-level para performance) ─────────────────────────
-const cam = { rotX: -0.42, rotY: 0.3, dist: 24 };
+const cam = { rotX: -0.42, rotY: 0.55, dist: 42 };
 
 // ─── TEXTURAS PROCEDURALES ────────────────────────────────────────────────────
 // Genera textura DataTexture con ruido, funciona sin archivos de imagen
@@ -108,7 +108,7 @@ function BSection({
       {/* Cuerpo trasero del edificio (masa principal) */}
       <mesh position={[0, totalH / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[W, totalH, D]} />
-        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#FFF3D0' : '#ffffff'} />
+        <meshStandardMaterial map={TX.wall} roughness={0.88} color={sel ? '#dad0ff' : '#ffffff'} />
       </mesh>
 
       {/* Losas horizontales entre pisos */}
@@ -196,30 +196,54 @@ function Ground() {
   return (
     <>
       {/* Césped principal */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
-        <planeGeometry args={[40, 36]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -20]} receiveShadow>
+        <planeGeometry args={[80, 80]} />
         <meshStandardMaterial map={TX.gnd} roughness={0.95} color="#3A8A28" />
       </mesh>
       {/* Camino central N-S */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 2]}>
-        <planeGeometry args={[2.2, 22]} />
+        <planeGeometry args={[2.2, 11]} />
         <meshStandardMaterial map={TX.path} roughness={0.88} />
       </mesh>
-      {/* Plaza frontal */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 9.5]}>
+
+      {/* Nuevo camino horizontal (Este-Oeste) al filo superior */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 7]}>
+        {/* El primer número (14) es el largo de izquierda a derecha. 
+            El segundo (2.2) es el grosor del camino */}
+        <planeGeometry args={[23, 2.2]} />
+        <meshStandardMaterial map={TX.path} roughness={0.88} />
+      </mesh>
+
+      {/* Camino Entrada */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-3, 0, 12]}>
+        <planeGeometry args={[2.2, 11]} />
+        <meshStandardMaterial map={TX.path} roughness={0.88} />
+      </mesh>
+
+
+      {/* Plaza frontal 
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
         <planeGeometry args={[16, 6]} />
         <meshStandardMaterial map={TX.path} roughness={0.82} color="#B8A080" />
-      </mesh>
-      {/* Caminos laterales */}
-      {[-6.5, 6.5].map((x, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0, 0]}>
+      </mesh>*/}
+
+      {/* Camino lateral */}
+      {[-12].map((x, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0, 5]}>
+          <planeGeometry args={[1.5, 15]} />
+          <meshStandardMaterial map={TX.path} roughness={0.88} />
+        </mesh>
+      ))}
+      {/* Caminos lateral bloque D y E*/}
+      {[-12].map((x, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0, -10]}>
           <planeGeometry args={[1.5, 22]} />
           <meshStandardMaterial map={TX.path} roughness={0.88} />
         </mesh>
       ))}
       {/* Árboles frente */}
-      {[-5, -2.5, 0, 2.5, 5].map((tx, i) => (
-        <Tree key={i} p={[tx, 0, 9.5]} />
+      {[-2.5, 2.5].map((tx, i) => (
+        <Tree key={i} p={[tx, 0, 2]} />
       ))}
     </>
   );
@@ -234,7 +258,7 @@ function CamCtrl() {
       Math.sin(-cam.rotX) * cam.dist,
       Math.cos(cam.rotY) * cam.dist * cx,
     );
-    camera.lookAt(0, 2.5, 0);
+    camera.lookAt(-6, 2.5, -5);
   });
   return null;
 }
@@ -251,13 +275,13 @@ const BLOQUES: {
   // Bloque A — vertical, izquierda, fachada hacia afuera (-X)
   { id: 'A', pos: [-6.5, 0, -1],   rot: [0,  Math.PI / 2, 0], W: 9,   D: 2.8, floors: 3, bays: 5 },
   // Bloque B — horizontal, centro
-  { id: 'B', pos: [0,    0,  3],                                W: 11,  D: 2.8, floors: 3, bays: 7 },
+  { id: 'B', pos: [0,    -0,  -4.1],                                W: 11,  D: 2.8, floors: 3, bays: 7 },
   // Bloque C — vertical, derecha, fachada hacia afuera (+X)
   { id: 'C', pos: [6.5,  0, -1],   rot: [0, -Math.PI / 2, 0], W: 9,   D: 2.8, floors: 3, bays: 5 },
-  // Bloque D — separado
-  { id: 'D', pos: [-4,   0,  9],                                W: 5,   D: 2.5, floors: 2, bays: 3 },
-  // Bloque E — separado
-  { id: 'E', pos: [4,    0,  9],                                W: 4.8, D: 2.5, floors: 2, bays: 3 },
+  // Bloque D — derecha del camino lateral (x > -13.5), fachada hacia el camino (-X)
+  { id: 'D', pos: [-10.8, 0, -10], rot: [0, -Math.PI / 2, 0], W: 10, D: 2.8, floors: 2, bays: 6 },
+  // Bloque E — izquierda del camino lateral (x < -13.5), fachada hacia el camino (+X), enfrentado a D
+  { id: 'E', pos: [-16.2, 0, -10], rot: [0,  Math.PI / 2, 0], W: 12, D: 2.8, floors: 2, bays: 7 },
 ];
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────────────────
@@ -372,7 +396,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
         </Canvas>
 
         {/* Leyenda */}
-        <View style={s.legend}>
+        <View style={[s.legend, { bottom: sel ? 20 : 40 }]}>
           {['A', 'B', 'C', 'D', 'E'].map(id => (
             <TouchableOpacity
               key={id}
@@ -418,7 +442,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
 // ─── ESTILOS ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: '#001D41' },
-  header:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#001D41' },
+  header:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 40, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#001D41' },
   hRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   logo:    { width: 44, height: 44, borderRadius: 22 },
   hTitle:  { color: '#fff', fontSize: 14, fontWeight: '800' },
@@ -428,11 +452,11 @@ const s = StyleSheet.create({
   tip:     { alignItems: 'center', paddingVertical: 5, backgroundColor: '#002255' },
   tipTxt:  { color: '#64748B', fontSize: 10 },
   cv:      { flex: 1 },
-  legend:  { position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10 },
+  legend:  { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10 },
   chip:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#ffffff10', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#ffffff20' },
   dot:     { width: 8, height: 8, borderRadius: 4 },
   chipTxt: { color: '#ccc', fontSize: 11 },
-  panel:   { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 12, marginBottom: 10, borderRadius: 14, overflow: 'hidden', elevation: 6 },
+  panel:   { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 12, marginBottom: 30, borderRadius: 14, overflow: 'hidden', elevation: 6 },
   pBar:    { width: 6 },
   pBody:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
   pTitle:  { fontSize: 18, fontWeight: '900', color: '#001D41' },
