@@ -277,7 +277,7 @@ function BlockE({ sel, onPress }: { sel: boolean; onPress: () => void }) {
     if (ref.current) ref.current.scale.y = sc.current;
   });
   return (
-    <group ref={ref} position={[-10, 0, -17]} rotation={[0, Math.PI / 2, 0]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
+    <group ref={ref} position={[-12, 0, -17]} rotation={[0, Math.PI / 2, 0]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
       {/* Espalda de la U — corre a lo largo de Z, fachada hacia +X */}
       <BSection pos={[-27.1, 0, -10]} rot={[0, Math.PI / 2, 0]} W={7} D={2.8} floors={2} bays={4} sel={sel} />
 
@@ -310,7 +310,7 @@ function Banios({ sel, onPress }: { sel: boolean; onPress: () => void }) {
     if (ref.current) ref.current.scale.y = sc.current;
   });
   return (
-    <group ref={ref} position={[-15, 0, -9.5]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
+    <group ref={ref} position={[-16.5, 0, -6.5]} rotation={[0, Math.PI / 2, 0]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
       {/* Cuerpo */}
       <mesh position={[0, H / 2, 0]} castShadow>
         <boxGeometry args={[W, H, Dp]} />
@@ -347,7 +347,7 @@ function Banios({ sel, onPress }: { sel: boolean; onPress: () => void }) {
 
 // ─── BAR ──────────────────────────────────────────────────────────────────────
 function Bar({ sel, onPress }: { sel: boolean; onPress: () => void }) {
-  const W = 4.5, Dp = 2.6, H = FH + SH;
+  const W = 2.5, Dp = 2.0, H = FH + SH;
   const ref = useRef<any>(null);
   const sc  = useRef(1);
   useFrame(() => {
@@ -356,7 +356,7 @@ function Bar({ sel, onPress }: { sel: boolean; onPress: () => void }) {
   });
   // Justo al lado izquierdo del Bloque A (A en x=-6.5, rot π/2 → ocupa z de -5.5 a 3.5)
   return (
-    <group ref={ref} position={[-10.5, 0, 2]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
+    <group ref={ref} position={[-9.8, 0, -4]} onPointerDown={(e) => { e.stopPropagation(); onPress(); }}>
       {/* Cuerpo */}
       <mesh position={[0, H / 2, 0]} castShadow>
         <boxGeometry args={[W, H, Dp]} />
@@ -369,7 +369,7 @@ function Bar({ sel, onPress }: { sel: boolean; onPress: () => void }) {
       </mesh>
       {/* Techo */}
       <mesh position={[0, H + 0.14, 0]}>
-        <boxGeometry args={[W + 0.4, 0.22, Dp + 0.4]} />
+        <boxGeometry args={[W + 0.1, 0.22, Dp + 0.4]} />
         <meshStandardMaterial color="#001D41" roughness={0.6} />
       </mesh>
       {/* Toldo */}
@@ -383,12 +383,12 @@ function Bar({ sel, onPress }: { sel: boolean; onPress: () => void }) {
         <meshStandardMaterial color="#3A2010" roughness={0.85} />
       </mesh>
       {/* Ventana izquierda */}
-      <mesh position={[-1.4, SH + H * 0.55, Dp / 2 + 0.03]}>
+      <mesh position={[-0.9, SH + H * 0.55, Dp / 2 + 0.03]}>
         <boxGeometry args={[0.9, H * 0.45, 0.05]} />
         <meshStandardMaterial map={TX.win} roughness={0.1} metalness={0.3} />
       </mesh>
       {/* Ventana derecha */}
-      <mesh position={[1.4, SH + H * 0.55, Dp / 2 + 0.03]}>
+      <mesh position={[0.9, SH + H * 0.55, Dp / 2 + 0.03]}>
         <boxGeometry args={[0.9, H * 0.45, 0.05]} />
         <meshStandardMaterial map={TX.win} roughness={0.1} metalness={0.3} />
       </mesh>
