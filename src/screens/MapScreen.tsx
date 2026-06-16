@@ -544,7 +544,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
       <View style={s.cv} {...pr.panHandlers}>
         <Canvas
           camera={{ position: [9, 11, 20], fov: 44 }}
-          style={StyleSheet.absoluteFill}
+          style={StyleSheet.absoluteFillObject}
           shadows
         >
           {/* Iluminación arquitectónica de 3 puntos */}
