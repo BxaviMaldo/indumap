@@ -7,7 +7,7 @@ import { Canvas, useFrame } from '@react-three/fiber/native';
 import { getAllEspacios } from '../services/espacios';
 import type { Espacio } from '../types/espacio';
 import { DataTexture, RGBAFormat, RepeatWrapping } from 'three';
-
+  
 // ─── COLORES DE BLOQUES ────────────────────────────────────────────────────────
 const COLORS: Record<string, string> = {
   A: '#00A9E0', B: '#11806A', C: '#F08D1E', D: '#D5A021', E: '#ad0ca2',
@@ -544,7 +544,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
       <View style={s.cv} {...pr.panHandlers}>
         <Canvas
           camera={{ position: [9, 11, 20], fov: 44 }}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           shadows
         >
           {/* Iluminación arquitectónica de 3 puntos */}
@@ -574,11 +574,11 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
               bays={b.bays}
               hasDoor={b.hasDoor}
               sel={sel === b.id}
-              onPress={() => onSeleccionarBloque(b.id)}
+              onPress={() => toggle(b.id)}
             />
           ))}
           {/* Bloque E — U-shape independiente */}
-          <BlockE sel={sel === 'E'} onPress={() => onSeleccionarBloque('E')} />
+          <BlockE sel={sel === 'E'} onPress={() => toggle('E')} />
           {/* Baños — entre D y E */}
           <Banios sel={sel === 'BAÑOS'} onPress={() => toggle('BAÑOS')} />
           {/* Bar — al lado del Bloque A */}
@@ -616,8 +616,8 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
         </View>
       </View>
 
-      {/* Panel inferior al seleccionar desde leyenda */}
-      {sel && (
+      {/* Panel inferior al seleccionar */}
+      {sel && selFloors > 0 && (
         <View style={s.panel}>
           <View style={[s.pBar, { backgroundColor: COLORS[sel] }]} />
           <View style={s.pBody}>
@@ -629,14 +629,12 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
                   : 'Planta Baja'}
               </Text>
             </View>
-            {sel !== 'BAR' && sel !== 'BAÑOS' && (
-              <TouchableOpacity
-                style={[s.pBtn, { backgroundColor: COLORS[sel] }]}
-                onPress={() => onSeleccionarBloque(sel)}
-              >
-                <Text style={s.pBtnTxt}>Ver espacios →</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[s.pBtn, { backgroundColor: COLORS[sel] }]}
+              onPress={() => onSeleccionarBloque(sel)}
+            >
+              <Text style={s.pBtnTxt}>Ver espacios →</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
