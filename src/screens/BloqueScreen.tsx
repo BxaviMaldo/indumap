@@ -372,7 +372,7 @@ const C = { navy: '#001D41', bg: '#0B1829', card: '#0F2035', border: '#1E3A5F', 
 const s = StyleSheet.create({
   safe:         { flex: 1, backgroundColor: C.bg },
 
-  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.navy },
+  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 40, paddingBottom: 12, backgroundColor: C.navy },
   backBtn:      { paddingVertical: 6, paddingHorizontal: 4 },
   backTxt:      { color: '#00A9E0', fontSize: 14, fontWeight: '700' },
   hTitle:       { color: '#fff', fontSize: 16, fontWeight: '900' },
