@@ -205,7 +205,7 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
     const selected  = selRoom?.id === e.id;
     return {
       backgroundColor: searchHit ? '#FFD600' : bg,
-      opacity: dimmed ? 0.4 : (selected || marked) ? 1 : 0.9,
+      opacity: e.activo === false ? 0.35 : dimmed ? 0.4 : (selected || marked) ? 1 : 0.9,
       borderWidth: (selected || marked) ? 2.5 : 0,
       borderColor: '#fff',
     };
@@ -462,6 +462,7 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
               <Text style={s.detailSub}>
                 {TYPE_ICON[selRoom.tipo]} {selRoom.tipo}
                 {selRoom.responsable ? ` · ${selRoom.responsable}` : ''}
+                {selRoom.activo === false ? ' · INACTIVO' : ''}
               </Text>
             </View>
             <TouchableOpacity onPress={() => setSelRoom(null)} style={s.detailClose}>

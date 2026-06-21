@@ -30,6 +30,7 @@ export interface Espacio {
   bloque: Bloque;
   piso: Piso;
   responsable: string;
+  activo: boolean;
   coordenadas: Coordenadas | null;
   foto_referencia: string | null;
   anexo: string | null;

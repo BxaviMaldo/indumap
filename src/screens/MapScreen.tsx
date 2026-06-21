@@ -423,10 +423,11 @@ type Props = {
   tipoUsuario: 'visitante' | 'admin';
   cedula?: string;
   onSeleccionarBloque: (b: string) => void;
+  onAbrirConfig?: () => void;
   onLogout: () => void;
 };
 
-export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, onLogout }: Props) {
+export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, onAbrirConfig, onLogout }: Props) {
   const [sel, setSel]           = useState<string | null>(null);
   const [search, setSearch]     = useState('');
   const [espacios, setEspacios] = useState<Espacio[]>([]);
@@ -499,9 +500,16 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
             </Text>
           </View>
         </View>
-        <TouchableOpacity style={s.xBtn} onPress={onLogout}>
-          <Text style={s.xTxt}>✕</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {tipoUsuario === 'admin' && (
+            <TouchableOpacity style={s.xBtn} onPress={onAbrirConfig}>
+              <Text style={s.xTxt}>⚙️</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={s.xBtn} onPress={onLogout}>
+            <Text style={s.xTxt}>✕</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={s.tip}>

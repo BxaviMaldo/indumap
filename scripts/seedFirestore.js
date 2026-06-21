@@ -140,11 +140,14 @@ const espacios = [
 async function seed() {
   console.log(`Cargando ${espacios.length} espacios a Firestore...`);
   await Promise.all(
-    espacios.map(espacio =>
-      setDoc(doc(db, 'espacios', espacio.id), espacio).then(() =>
-        console.log(`  ✓ ${espacio.id}`)
-      )
-    )
+    espacios.map(espacio => {
+      // El "id" se usa SOLO como clave del documento, no se guarda como campo
+      // (sería redundante). "activo" se agrega por defecto en true.
+      const { id, ...data } = espacio;
+      return setDoc(doc(db, 'espacios', id), { activo: true, ...data }).then(() =>
+        console.log(`  ✓ ${id}`)
+      );
+    })
   );
   console.log('\nListo. Todos los espacios fueron cargados.');
   await terminate(db);
