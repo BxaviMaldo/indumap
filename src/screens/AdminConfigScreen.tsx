@@ -4,7 +4,7 @@ import {
   ScrollView, TextInput, SafeAreaView, Switch, Alert, ActivityIndicator,
 } from 'react-native';
 import { getAllEspacios, updateEspacio } from '../services/espacios';
-import { getAllAdmins, registerAdmin, adminExists, setAdminActivo, type Admin } from '../services/admins';
+import { getAllAdmins, registerAdmin, setAdminActivo, EmailSendError, type Admin } from '../services/admins';
 import type { Espacio, TipoEspacio } from '../types/espacio';
 
 const TIPOS: TipoEspacio[] = [
@@ -85,6 +85,7 @@ export default function AdminConfigScreen({ onBack }: Props) {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loadingAdm, setLoadingAdm] = useState(true);
   const [nuevaCedula, setNuevaCedula] = useState('');
+  const [nuevoEmail, setNuevoEmail] = useState('');
   const [registrando, setRegistrando] = useState(false);
 
   const cargarAdmins = () => {
@@ -93,23 +94,36 @@ export default function AdminConfigScreen({ onBack }: Props) {
   };
   useEffect(() => { if (tab === 'admins') cargarAdmins(); }, [tab]);
 
+  const emailValido = /\S+@\S+\.\S+/.test(nuevoEmail);
+
   const registrarAdmin = async () => {
     if (nuevaCedula.length !== 10) {
       Alert.alert('Cédula inválida', 'Debe tener 10 dígitos.');
       return;
     }
+    if (!emailValido) {
+      Alert.alert('Correo inválido', 'Ingresa un correo electrónico válido.');
+      return;
+    }
     setRegistrando(true);
     try {
-      if (await adminExists(nuevaCedula)) {
-        Alert.alert('Ya existe', 'Esa cédula ya está registrada como administrador.');
-        return;
-      }
-      await registerAdmin(nuevaCedula);
+      await registerAdmin(nuevaCedula, nuevoEmail.trim());
       setNuevaCedula('');
+      setNuevoEmail('');
       cargarAdmins();
-      Alert.alert('Listo', 'Administrador registrado correctamente.');
-    } catch {
-      Alert.alert('Error', 'No se pudo registrar. Revisa tu conexión.');
+      Alert.alert('Listo', `Se creó el administrador y se envió la contraseña provisional a ${nuevoEmail}.`);
+    } catch (err) {
+      if (err instanceof EmailSendError) {
+        setNuevaCedula('');
+        setNuevoEmail('');
+        cargarAdmins();
+        Alert.alert(
+          'Admin creado, pero el correo falló',
+          `El administrador se creó correctamente.\n\nComparte esta contraseña provisional manualmente:\n\n${err.tempPassword}`,
+        );
+      } else {
+        Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo registrar. Revisa tu conexión.');
+      }
     } finally {
       setRegistrando(false);
     }
@@ -184,20 +198,32 @@ export default function AdminConfigScreen({ onBack }: Props) {
           {/* Registrar nuevo admin */}
           <View style={s.card}>
             <Text style={s.cardTitle}>Registrar nuevo administrador</Text>
-            <Text style={s.cardSub}>Ingresa el número de cédula (10 dígitos)</Text>
+            <Text style={s.cardSub}>
+              Se creará su cuenta y se le enviará una contraseña provisional por correo.
+              Deberá cambiarla en su primer ingreso.
+            </Text>
             <TextInput
               style={s.input}
-              placeholder="0912345678"
+              placeholder="Cédula (10 dígitos)"
               placeholderTextColor="#64748B"
               keyboardType="numeric"
               maxLength={10}
               value={nuevaCedula}
               onChangeText={setNuevaCedula}
             />
+            <TextInput
+              style={s.input}
+              placeholder="Correo electrónico"
+              placeholderTextColor="#64748B"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={nuevoEmail}
+              onChangeText={setNuevoEmail}
+            />
             <TouchableOpacity
-              style={[s.btn, (registrando || nuevaCedula.length !== 10) && s.btnDisabled]}
+              style={[s.btn, (registrando || nuevaCedula.length !== 10 || !emailValido) && s.btnDisabled]}
               onPress={registrarAdmin}
-              disabled={registrando || nuevaCedula.length !== 10}
+              disabled={registrando || nuevaCedula.length !== 10 || !emailValido}
             >
               {registrando
                 ? <ActivityIndicator color="#fff" />
@@ -216,7 +242,10 @@ export default function AdminConfigScreen({ onBack }: Props) {
               <View key={a.cedula} style={s.adminRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.adminCedula}>{a.cedula}</Text>
-                  <Text style={s.adminStatus}>{a.activo ? 'Activo' : 'Inactivo'}</Text>
+                  <Text style={s.adminStatus}>
+                    {a.email} · {a.activo ? 'Activo' : 'Inactivo'}
+                    {a.mustChangePassword ? ' · pendiente 1er cambio' : ''}
+                  </Text>
                 </View>
                 <Switch value={a.activo} onValueChange={() => toggleAdmin(a)} />
               </View>

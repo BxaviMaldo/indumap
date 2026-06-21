@@ -5,8 +5,10 @@ import LoginScreen from './src/screens/LoginScreen';
 import MapScreen from './src/screens/MapScreen';
 import BloqueScreen from './src/screens/BloqueScreen';
 import AdminConfigScreen from './src/screens/AdminConfigScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
+import { logoutAdmin } from './src/services/auth';
 
-type Pantalla = 'login' | 'mapa' | 'bloque' | 'admin-config';
+type Pantalla = 'login' | 'mapa' | 'bloque' | 'admin-config' | 'cambiar-password';
 type TipoUsuario = 'visitante' | 'admin';
 
 export default function App() {
@@ -21,8 +23,21 @@ export default function App() {
         <StatusBar style="dark" />
         <LoginScreen
           onVisitante={() => { setTipoUsuario('visitante'); setPantalla('mapa'); }}
-          onAdmin={(c) => { setCedula(c); setTipoUsuario('admin'); setPantalla('mapa'); }}
+          onAdmin={(c, mustChangePassword) => {
+            setCedula(c);
+            setTipoUsuario('admin');
+            setPantalla(mustChangePassword ? 'cambiar-password' : 'mapa');
+          }}
         />
+      </>
+    );
+  }
+
+  if (pantalla === 'cambiar-password') {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <ChangePasswordScreen cedula={cedula} onDone={() => setPantalla('mapa')} />
       </>
     );
   }
@@ -36,7 +51,7 @@ export default function App() {
           cedula={cedula}
           onSeleccionarBloque={(b) => { setBloqueSeleccionado(b); setPantalla('bloque'); }}
           onAbrirConfig={() => setPantalla('admin-config')}
-          onLogout={() => { setCedula(''); setPantalla('login'); }}
+          onLogout={() => { logoutAdmin(); setCedula(''); setPantalla('login'); }}
         />
       </>
     );

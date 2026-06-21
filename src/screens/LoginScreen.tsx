@@ -5,16 +5,16 @@ import {
   Platform, ScrollView, Image,
 } from 'react-native';
 
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { loginAdmin, AdminLoginError } from '../services/auth';
 
 type Props = {
   onVisitante: () => void;
-  onAdmin: (cedula: string) => void;
+  onAdmin: (cedula: string, mustChangePassword: boolean) => void;
 };
 
 export default function LoginScreen({ onVisitante, onAdmin }: Props) {
   const [cedula, setCedula] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleAdmin() {
@@ -22,16 +22,17 @@ export default function LoginScreen({ onVisitante, onAdmin }: Props) {
       Alert.alert('Número inválido', 'La cédula debe tener 10 dígitos.');
       return;
     }
+    if (!password) {
+      Alert.alert('Falta la contraseña', 'Ingresa tu contraseña.');
+      return;
+    }
     setLoading(true);
     try {
-      const snap = await getDoc(doc(db, 'admins', cedula));
-      if (snap.exists() && snap.data()?.activo) {
-        onAdmin(cedula);
-      } else {
-        Alert.alert('Acceso denegado', 'La cédula no está registrada como administrador.');
-      }
-    } catch {
-      Alert.alert('Error', 'No se pudo verificar. Revisa tu conexión.');
+      const { mustChangePassword } = await loginAdmin(cedula, password);
+      onAdmin(cedula, mustChangePassword);
+    } catch (err) {
+      const msg = err instanceof AdminLoginError ? err.message : 'No se pudo verificar. Revisa tu conexión.';
+      Alert.alert('Acceso denegado', msg);
     } finally {
       setLoading(false);
     }
@@ -102,10 +103,20 @@ export default function LoginScreen({ onVisitante, onAdmin }: Props) {
               onChangeText={setCedula}
             />
 
+            <Text style={s.label}>Contraseña</Text>
+            <TextInput
+              style={s.input}
+              placeholder="••••••••"
+              placeholderTextColor="#94A3B8"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+
             <TouchableOpacity
-              style={[s.btn, (loading || cedula.length !== 10) && s.btnDisabled]}
+              style={[s.btn, (loading || cedula.length !== 10 || !password) && s.btnDisabled]}
               onPress={handleAdmin}
-              disabled={loading || cedula.length !== 10}
+              disabled={loading || cedula.length !== 10 || !password}
               activeOpacity={0.8}
             >
               {loading
