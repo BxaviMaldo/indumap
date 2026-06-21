@@ -49,19 +49,7 @@ type LayoutItem =
   | { feature: 'BAÑOS' | 'PASILLO'; label: string; col: 'I' | 'D'; weight?: number };
 
 const LAYOUT_CONFIG: Record<string, LayoutItem[]> = {
-  'A-PLANTA BAJA': [
-    { nombre: 'Decanato',                    col: 'I' },
-    { nombre: 'Secretar',                    col: 'D', weight: 3.5 },  // Secretaría (área grande)
-    { feature: 'PASILLO', label: 'Pasillo de entrada', col: 'D', weight: 1 },  // franja delgada
-    { nombre: 'Subdecano',                   col: 'I' },
-    { feature: 'BAÑOS', label: 'Baños',      col: 'I' },
-    { nombre: 'talento humano',              col: 'D', weight: 2 },  // Dpto. De talento humano
-    { nombre: 'Administración',              col: 'I' },  // Administración de edificio
-    { nombre: 'Sala de docentes',            col: 'D', weight: 1.5 },  // más pequeña
-    { nombre: 'Direcci',                     col: 'I' },  // Dirección de Carrera industrial
-    { nombre: 'conferencias',                col: 'D' },  // Sala de conferencias
-    { nombre: 'Info',                        col: 'D' },
-  ],
+  // 'A-PLANTA BAJA' usa un PLANO PROPIO (ver renderPlanoA0 en el componente).
   // 'A-PRIMERA PLANTA' usa un PLANO PROPIO (ver renderPlanoA1 en el componente),
   // por eso no se configura aquí.
 
@@ -267,8 +255,43 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
   // ───────────────────────────────────────────────────────────────────────
 
   // ¿Este bloque/piso usa un plano propio en vez del genérico?
-  const planoPropio =
-    bloque === 'A' && (piso === 'PRIMERA PLANTA' || piso === 'SEGUNDA PLANTA');
+  // El Bloque A tiene plano propio en sus tres pisos.
+  const planoPropio = bloque === 'A';
+
+  // Plano propio: Bloque A — Planta Baja
+  const renderPlanoA0 = () => {
+    const decanato   = porPiso.find(r => r.nombre.toLowerCase().trim() === 'decanato');
+    const subdecano  = findRoom('subdecano');
+    const bano       = findRoom('baño');                 // Baños 007 (nuevo en BD)
+    const admin      = findRoom('administración');       // Administración de Edificio
+    const direccion  = findRoom('dirección de carrera') ?? findRoom('carrera');
+    const secretaria = findRoom('secretar');             // Secretaría del Decanato
+    const talento    = findRoom('talento');              // Dpto. de Talento Humano
+    const salaDoc    = findRoom('docentes');             // Sala de Docentes 1
+    return (
+      <>
+        {/* Pasillo central (baja por el medio hasta Dirección de Carrera) */}
+        <View style={[s.corridorBg, rectStyle({ x: 112, y: 4, w: 66, h: 296 })]}>
+          <Text style={s.corridorTxt}>PASILLO</Text>
+        </View>
+
+        {/* Izquierda: Decanato, Subdecano, Baños y Administración (alta) */}
+        {decanato  && RoomBox(decanato,  { x: 4, y: 4,   w: 108, h: 70 })}
+        {subdecano && RoomBox(subdecano, { x: 4, y: 76,  w: 108, h: 66 })}
+        {bano      && RoomBox(bano,      { x: 4, y: 144, w: 108, h: 64 })}
+        {admin     && RoomBox(admin,     { x: 4, y: 214, w: 108, h: 162 })}
+
+        {/* Centro abajo: Dirección de Carrera */}
+        {direccion && RoomBox(direccion, { x: 112, y: 300, w: 66, h: 76 })}
+
+        {/* Derecha: Secretaría (grande), Pasillo de entrada, Talento Humano y Sala de Docentes */}
+        {secretaria && RoomBox(secretaria, { x: 178, y: 4,   w: 108, h: 140 })}
+        {PasilloBox('a0-pas', 'Pasillo de entrada', { x: 178, y: 150, w: 108, h: 58 })}
+        {talento    && RoomBox(talento,    { x: 178, y: 214, w: 108, h: 80 })}
+        {salaDoc    && RoomBox(salaDoc,    { x: 178, y: 298, w: 108, h: 78 })}
+      </>
+    );
+  };
 
   // Plano propio: Bloque A — Primer Piso
   const renderPlanoA1 = () => {
@@ -425,7 +448,9 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
 
               {planoPropio ? (
                 /* ── Plano propio del bloque/piso ── */
-                piso === 'PRIMERA PLANTA' ? renderPlanoA1() : renderPlanoA2()
+                piso === 'PLANTA BAJA' ? renderPlanoA0()
+                  : piso === 'PRIMERA PLANTA' ? renderPlanoA1()
+                  : renderPlanoA2()
               ) : (
                 /* ── Plano genérico de 2 columnas ── */
                 <>

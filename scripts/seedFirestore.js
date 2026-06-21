@@ -42,6 +42,7 @@ const espacios = [
   { id: 'SUBDECANO',         nombre: 'Subdecano',                            tipo: 'INFORMATIVA', bloque: 'A', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'DECANATO',          nombre: 'Decanato',                             tipo: 'INFORMATIVA', bloque: 'A', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'SECRETARIA',        nombre: 'Secretaría del Decanato',              tipo: 'INFORMATIVA', bloque: 'A', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
+  { id: 'BAÑOS_007',         nombre: 'Baños 007',                            tipo: 'BAÑOS',       bloque: 'A', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
 
   // ─── BLOQUE C — PRIMERA PLANTA ────────────────────────────────────────────
   { id: 'VINCULACION',           nombre: 'Vinculación con la Comunidad y Bienestar Estudiantil', tipo: 'INFORMATIVA', bloque: 'C', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
@@ -62,7 +63,7 @@ const espacios = [
 
   // ─── BLOQUE A — PRIMERA PLANTA ────────────────────────────────────────────
   { id: 'BIBLIOTECA',       nombre: 'Biblioteca',                            tipo: 'INFORMATIVA', bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
-  { id: 'BAÑOS_004',        nombre: 'Baños 004',                             tipo: 'BAÑOS',       bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
+  { id: 'BAÑO',        nombre: 'Baño',                             tipo: 'BAÑOS',       bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'INST_POSTGRADO',   nombre: 'Instituto de Postgrado, Investigación y Educación Continua', tipo: 'INFORMATIVA', bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'LAB_14A_101',      nombre: 'Laboratorio de Cómputo 14A 101',       tipo: 'LABORATORIO', bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
 
