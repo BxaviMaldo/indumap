@@ -63,7 +63,7 @@ const espacios = [
 
   // ─── BLOQUE A — PRIMERA PLANTA ────────────────────────────────────────────
   { id: 'BIBLIOTECA',       nombre: 'Biblioteca',                            tipo: 'INFORMATIVA', bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
-  { id: 'BAÑO',        nombre: 'Baño',                             tipo: 'BAÑOS',       bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
+  { id: 'BAÑOS_004',        nombre: 'Baños 004',                             tipo: 'BAÑOS',       bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'INST_POSTGRADO',   nombre: 'Instituto de Postgrado, Investigación y Educación Continua', tipo: 'INFORMATIVA', bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'LAB_14A_101',      nombre: 'Laboratorio de Cómputo 14A 101',       tipo: 'LABORATORIO', bloque: 'A', piso: 'PRIMERA PLANTA', responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
 
