@@ -81,6 +81,35 @@ export default function AdminConfigScreen({ onBack }: Props) {
     }
   };
 
+  // "Eliminar" = vaciar la zona (nombre, tipo y responsable) → queda "Disponible"
+  const eliminarEspacio = () => {
+    if (!editing) return;
+    Alert.alert(
+      'Eliminar zona',
+      'Se borrarán el nombre, tipo y responsable. La zona quedará como "Disponible".',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            const limpio = { nombre: 'Disponible', tipo: 'AULA' as TipoEspacio, responsable: '', activo: true };
+            setSaving(true);
+            try {
+              await updateEspacio(editing.id, limpio);
+              setEspacios(prev => prev.map(e => (e.id === editing.id ? { ...e, ...limpio } : e)));
+              setEditing(null);
+            } catch {
+              Alert.alert('Error', 'No se pudo eliminar. Revisa tu conexión.');
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // ── Administradores ──────────────────────────────────────────────────────
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loadingAdm, setLoadingAdm] = useState(true);
@@ -285,6 +314,10 @@ export default function AdminConfigScreen({ onBack }: Props) {
               <Switch value={fActivo} onValueChange={setFActivo} />
             </View>
 
+            <TouchableOpacity style={s.modalDelete} onPress={eliminarEspacio} disabled={saving}>
+              <Text style={s.modalDeleteTxt}>🗑️  Eliminar zona (dejar como Disponible)</Text>
+            </TouchableOpacity>
+
             <View style={s.modalBtns}>
               <TouchableOpacity style={s.modalCancel} onPress={() => setEditing(null)} disabled={saving}>
                 <Text style={s.modalCancelTxt}>Cancelar</Text>
@@ -352,7 +385,10 @@ const s = StyleSheet.create({
   tchipTxt:   { color: C.sub, fontSize: 10, fontWeight: '700' },
   tchipTxtActive:{ color: '#fff' },
 
-  activoRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 16 },
+  activoRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, marginBottom: 12 },
+
+  modalDelete:   { marginBottom: 14, paddingVertical: 11, borderRadius: 10, borderWidth: 1, borderColor: '#B71C1C', alignItems: 'center' },
+  modalDeleteTxt:{ color: '#EF5350', fontSize: 13, fontWeight: '700' },
 
   modalBtns:  { flexDirection: 'row', gap: 10 },
   modalCancel:{ flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#ffffff12' },

@@ -73,6 +73,7 @@ export default function App() {
       <BloqueScreen
         bloque={bloqueSeleccionado}
         onBack={() => setPantalla('mapa')}
+        tipoUsuario={tipoUsuario}
       />
     </>
   );

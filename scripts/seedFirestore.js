@@ -26,6 +26,7 @@ const espacios = [
   { id: 'AULA_14C_007',      nombre: 'Aula 14C-007',                        tipo: 'AULA',        bloque: 'C', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'AULA_14C_005',      nombre: 'Aula 14C-005',                        tipo: 'AULA',        bloque: 'C', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
   { id: 'AULA_14C_006',      nombre: 'Aula 14C-006',                        tipo: 'AULA',        bloque: 'C', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },
+  { id: 'C_PB_LIBRE',        nombre: 'Disponible',                          tipo: 'AULA',        bloque: 'C', piso: 'PLANTA BAJA',    responsable: '',                  coordenadas: null, foto_referencia: null, anexo: null },
 
   // ─── BLOQUE B — PLANTA BAJA ───────────────────────────────────────────────
   { id: 'SALA_MOTOCHE',      nombre: 'Sala Motoche',                         tipo: 'INFORMATIVA', bloque: 'B', piso: 'PLANTA BAJA',    responsable: 'Gestión Académica', coordenadas: null, foto_referencia: null, anexo: null },

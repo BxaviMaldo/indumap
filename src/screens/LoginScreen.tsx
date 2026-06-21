@@ -148,12 +148,12 @@ const C = {
 const s = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: C.white },
   flex:           { flex: 1 },
-  scroll:         { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 32, justifyContent: 'center' },
+  scroll:         { flexGrow: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 32, justifyContent: 'center' },
 
   logoWrap:       { alignItems: 'center', marginBottom: 16 },
   logoImg:        { width: 120, height: 120 },
 
-  header:         { alignItems: 'center', marginBottom: 24 },
+  header:         { alignItems: 'center', marginBottom: 24},
   headerTitle:    { color: C.navy, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
   headerSub:      { color: C.slate, fontSize: 12, marginTop: 2 },
 
@@ -181,5 +181,5 @@ const s = StyleSheet.create({
   btnDisabled:    { opacity: 0.4 },
   btnText:        { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  footer:         { textAlign: 'center', color: '#94A3B8', fontSize: 11, marginTop: 65 },
+  footer:         { textAlign: 'center', color: '#94A3B8', fontSize: 11, marginTop: 20 },
 });

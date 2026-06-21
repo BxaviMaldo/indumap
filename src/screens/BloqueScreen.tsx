@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, TextInput, SafeAreaView,
+  ScrollView, TextInput, SafeAreaView, Modal, Alert, Switch,
 } from 'react-native';
-import { getEspaciosByBloque } from '../services/espacios';
+import { getEspaciosByBloque, updateEspacio } from '../services/espacios';
 import type { Espacio, Piso, TipoEspacio } from '../types/espacio';
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
@@ -19,28 +19,49 @@ const TYPE_COLOR: Partial<Record<TipoEspacio, string>> = {
   'AULA':               '#1565C0',
   'LABORATORIO':        '#6A1B9A',
   'BAÑOS':              '#00838F',
-  'OFICINA':            '#E65100',
   'INFORMATIVA':        '#37474F',
-  'TALLER':             '#4E342E',
-  'AUDITORIO':          '#AD1457',
-  'ACCESO PRINCIPAL':   '#2E7D32',
-  'SALIDA / EVACUACIÓN':'#B71C1C',
-  'ENTRADA /SALIDA':    '#BF360C',
+  'AUDITORIO':          '#F57C00',
 };
 
 const TYPE_ICON: Partial<Record<TipoEspacio, string>> = {
-  'AULA': '🎓', 'LABORATORIO': '🔬', 'BAÑOS': '🚻',
-  'OFICINA': '🗂️', 'TALLER': '🔧', 'AUDITORIO': '🎭',
-  'ACCESO PRINCIPAL': '🚪', 'SALIDA / EVACUACIÓN': '🚨',
-  'ENTRADA /SALIDA': '↔️', 'INFORMATIVA': 'ℹ️',
+  'AULA': '🎓', 'LABORATORIO': '🔬', 'BAÑOS': '🚻', 'INFORMATIVA': 'ℹ️', 'AUDITORIO': '🎭',
 };
 
-// Grupos de filtros adicionales
-const FILTER_GROUPS = [
-  { key: 'PRACTICA', label: 'Prácticas', types: ['LABORATORIO', 'TALLER'] as TipoEspacio[] },
-  { key: 'SERVICIOS', label: 'Servicios', types: ['BAÑOS', 'ACCESO PRINCIPAL', 'ENTRADA /SALIDA', 'SALIDA / EVACUACIÓN'] as TipoEspacio[] },
-  { key: 'DOCENCIA', label: 'Docencia', types: ['AULA', 'AUDITORIO'] as TipoEspacio[] },
-  { key: 'ADMIN', label: 'Oficinas', types: ['OFICINA', 'INFORMATIVA'] as TipoEspacio[] },
+// Tipos que por ahora NO se muestran (ni en el plano, ni en filtros, ni leyenda).
+const HIDDEN_TIPOS: TipoEspacio[] = [
+  'OFICINA', 'TALLER', 'ACCESO PRINCIPAL',
+  'SALIDA / EVACUACIÓN', 'ENTRADA /SALIDA',
+];
+
+// El nombre que se muestra en el plano: los baños siempre dicen "Baños".
+const roomLabel = (e: Espacio) => (e.tipo === 'BAÑOS' ? 'Baños' : e.nombre);
+
+// ¿El espacio es una "Sala de docentes"? Se identifica por el nombre, así se
+// puede separar de las aulas normales aunque en la BD tenga tipo AULA.
+const esSalaDocente = (e: Espacio) => e.nombre.toLowerCase().includes('docente');
+
+// ¿Es un slot vacío "Disponible" (aún sin asignar por un administrador)?
+const esDisponible = (e: Espacio) => e.nombre.trim().toLowerCase() === 'disponible';
+
+// ¿Un espacio coincide con la clave de filtro indicada?
+const matchKey = (e: Espacio, key: string) => {
+  if (esDisponible(e)) return false;                         // los vacíos no entran a ningún filtro
+  if (key === 'SALADOC') return esSalaDocente(e);            // solo salas de docentes
+  if (key === 'AULA')    return e.tipo === 'AULA' && !esSalaDocente(e); // aulas SIN salas docentes
+  return e.tipo === key;
+};
+
+// Tipos que un administrador puede asignar a un área (los que tienen color/filtro)
+const TIPOS_EDITABLES: TipoEspacio[] = ['AULA', 'LABORATORIO', 'AUDITORIO', 'BAÑOS', 'INFORMATIVA'];
+
+// Filtros disponibles (en orden). El icono va dentro de la etiqueta.
+const FILTROS = [
+  { key: 'AULA',        label: '🎓 Aulas' },
+  { key: 'SALADOC',     label: '🧑‍🏫 Sala de docentes' },
+  { key: 'LABORATORIO', label: '🔬 Laboratorios' },
+  { key: 'AUDITORIO',   label: '🎭 Auditorio' },
+  { key: 'BAÑOS',       label: '🚻 Baños' },
+  { key: 'INFORMATIVA', label: 'ℹ️ Informativa' },
 ];
 
 
@@ -126,38 +147,93 @@ function layoutColumn(
 type Props = {
   bloque: string;
   onBack: () => void;
+  tipoUsuario?: 'visitante' | 'admin';
 };
 
 // ─── PANTALLA ─────────────────────────────────────────────────────────────────
-export default function BloqueScreen({ bloque, onBack }: Props) {
+export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante' }: Props) {
   const [todos,      setTodos]      = useState<Espacio[]>([]);
   const [piso,       setPiso]       = useState<Piso>('PLANTA BAJA');
   const [search,     setSearch]     = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
   const [selRoom,    setSelRoom]    = useState<Espacio | null>(null);
 
+  // ── Edición por administrador ──
+  const esAdmin = tipoUsuario === 'admin';
+  const [editRoom,    setEditRoom]    = useState<Espacio | null>(null);
+  const [draftNombre, setDraftNombre] = useState('');
+  const [draftTipo,   setDraftTipo]   = useState<TipoEspacio>('AULA');
+  const [draftResp,   setDraftResp]   = useState('');
+  const [draftActivo, setDraftActivo] = useState(true);
+  const [saving,      setSaving]      = useState(false);
+
+  const abrirEditar = (e: Espacio) => {
+    setDraftNombre(esDisponible(e) ? '' : e.nombre);
+    setDraftTipo(e.tipo);
+    setDraftResp(e.responsable ?? '');
+    setDraftActivo(e.activo !== false);
+    setEditRoom(e);
+  };
+
+  // Aplica cambios al documento y al estado local (plano se actualiza al instante)
+  const aplicarCambios = async (
+    id: string,
+    cambios: Partial<Pick<Espacio, 'nombre' | 'tipo' | 'responsable' | 'activo'>>,
+  ) => {
+    setSaving(true);
+    try {
+      await updateEspacio(id, cambios);
+      setTodos(prev => prev.map(r => (r.id === id ? { ...r, ...cambios } : r)));
+      setSelRoom(prev => (prev && prev.id === id ? { ...prev, ...cambios } : prev));
+      setEditRoom(null);
+      return true;
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el cambio. Revisa tu conexión.');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const guardarEdicion = () => {
+    if (!editRoom) return;
+    const nombre = draftNombre.trim();
+    if (!nombre) { Alert.alert('Falta el nombre', 'Escribe un nombre para el área.'); return; }
+    aplicarCambios(editRoom.id, { nombre, tipo: draftTipo, responsable: draftResp.trim(), activo: draftActivo });
+  };
+
+  // "Eliminar" = vaciar la zona (nombre, tipo y responsable) y dejarla como
+  // "Disponible" para que un administrador la vuelva a asignar.
+  const eliminarZona = () => {
+    if (!editRoom) return;
+    Alert.alert(
+      'Eliminar zona',
+      'Se borrarán el nombre, tipo y responsable. La zona quedará como "Disponible".',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => aplicarCambios(editRoom.id, {
+            nombre: 'Disponible', tipo: 'AULA', responsable: '', activo: true,
+          }),
+        },
+      ],
+    );
+  };
+
   useEffect(() => {
     getEspaciosByBloque(bloque as any).then(setTodos);
   }, [bloque]);
 
-  // Espacios del piso actual
+  // Espacios del piso actual (ocultando los tipos que no se usan por ahora)
   const porPiso = useMemo(
-    () => todos.filter(e => e.piso === piso),
+    () => todos.filter(e => e.piso === piso && !HIDDEN_TIPOS.includes(e.tipo)),
     [todos, piso],
   );
 
-  // Tipos presentes en este piso
-  const tiposPresentes = useMemo(
-    () => [...new Set(porPiso.map(e => e.tipo))],
-    [porPiso],
-  );
-
   // Filtro por tipo: ya NO oculta cuartos; solo sirve para MARCAR coincidencias.
-  const matchesFilter = (e: Espacio) => {
-    if (!tipoFiltro) return true;
-    const group = FILTER_GROUPS.find(g => g.key === tipoFiltro);
-    return group ? group.types.includes(e.tipo) : e.tipo === tipoFiltro;
-  };
+  const matchesFilter = (e: Espacio) => !tipoFiltro || matchKey(e, tipoFiltro);
 
   // Búsqueda (resalta coincidencias) — sobre todos los espacios del piso
   const q = search.trim().toLowerCase();
@@ -177,6 +253,17 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
   // Estilo de una celda-cuarto según búsqueda / filtro / selección.
   // Centralizado para que TODOS los planos (genérico o propio) marquen igual.
   const roomStyle = (e: Espacio) => {
+    // Slot vacío "Disponible": caja con borde punteado, lista para asignar
+    if (esDisponible(e)) {
+      const selected = selRoom?.id === e.id;
+      return {
+        backgroundColor: 'transparent',
+        opacity: 1,
+        borderWidth: selected ? 2.5 : 1.5,
+        borderColor: selected ? '#fff' : '#3A5A7A',
+        borderStyle: 'dashed' as const,
+      };
+    }
     const bg        = TYPE_COLOR[e.tipo] ?? '#607D8B';
     const searchHit = isSearching && highlighted.has(e.id);
     const filterHit = !!tipoFiltro && matchesFilter(e);
@@ -194,9 +281,17 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
     };
   };
 
-  // Busca un cuarto del piso por coincidencia parcial de nombre
+  // Busca un cuarto del piso por coincidencia parcial de nombre (entre los visibles)
   const findRoom = (needle: string) =>
     porPiso.find(r => r.nombre.toLowerCase().includes(needle.toLowerCase()));
+
+  // Igual que findRoom pero busca en TODO el piso (incluye tipos ocultos como
+  // AUDITORIO). Útil para planos propios que sí quieren mostrar esos espacios.
+  const findPiso = (needle: string) =>
+    todos.find(r => r.piso === piso && r.nombre.toLowerCase().includes(needle.toLowerCase()));
+
+  // Busca un cuarto por su id de documento (estable aunque cambie el nombre/tipo)
+  const findId = (id: string) => todos.find(r => r.piso === piso && r.id === id);
 
   type Rect = { x: number; y: number; w: number; h: number };
   const rectStyle = (r: Rect) =>
@@ -210,7 +305,7 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
       style={[s.cell, rectStyle(r), roomStyle(e)]}
       activeOpacity={0.8}
     >
-      <Text style={s.cellTxt} numberOfLines={3}>{e.nombre}</Text>
+      <Text style={s.cellTxt} numberOfLines={3}>{roomLabel(e)}</Text>
     </TouchableOpacity>
   );
   const AreaBox = (key: string, label: string, color: string, r: Rect) => (
@@ -227,12 +322,22 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
       style={[s.cell, rectStyle(r), roomStyle(e)]}
       activeOpacity={0.8}
     >
-      <Text style={s.cellTxt} numberOfLines={3}>{e.nombre}</Text>
+      <Text style={s.cellTxt} numberOfLines={3}>{roomLabel(e)}</Text>
     </TouchableOpacity>
   );
   const PasilloBox = (key: string, label: string, r: Rect) => (
     <View key={key} style={[s.featurePasillo, rectStyle(r)]}>
       <Text style={s.featurePasilloTxt} numberOfLines={2}>{label}</Text>
+    </View>
+  );
+  // Pasillo central con marca de "Entrada" (flecha ↑ + texto) al fondo.
+  const CorridorBox = (r: Rect) => (
+    <View key={`corr-${r.x}-${r.y}`} style={[s.corridorBg, rectStyle(r)]}>
+      <Text style={s.corridorTxt}>PASILLO</Text>
+      <View style={s.entradaWrap}>
+        <Text style={s.entradaArrow}>↑</Text>
+        <Text style={s.entradaTxt}>ENTRADA</Text>
+      </View>
     </View>
   );
 
@@ -255,19 +360,20 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
   // ───────────────────────────────────────────────────────────────────────
 
   // ¿Este bloque/piso usa un plano propio en vez del genérico?
-  // El Bloque A tiene plano propio en sus tres pisos.
-  const planoPropio = bloque === 'A';
+  // A y B tienen plano propio en sus tres pisos; C solo en planta baja (por ahora).
+  const planoPropio =
+    bloque === 'A' || bloque === 'B' || (bloque === 'C' && piso === 'PLANTA BAJA');
 
   // Plano propio: Bloque A — Planta Baja
   const renderPlanoA0 = () => {
-    const decanato   = porPiso.find(r => r.nombre.toLowerCase().trim() === 'decanato');
-    const subdecano  = findRoom('subdecano');
-    const bano       = findRoom('baño');                 // Baños 007 (nuevo en BD)
-    const admin      = findRoom('administración');       // Administración de Edificio
-    const direccion  = findRoom('dirección de carrera') ?? findRoom('carrera');
-    const secretaria = findRoom('secretar');             // Secretaría del Decanato
-    const talento    = findRoom('talento');              // Dpto. de Talento Humano
-    const salaDoc    = findRoom('docentes');             // Sala de Docentes 1
+    const decanato   = findId('DECANATO');
+    const subdecano  = findId('SUBDECANO');
+    const bano       = findId('BAÑOS_007');              // Baños 007
+    const admin      = findId('ADM_DE_EDIFICIO');        // Administración de Edificio
+    const direccion  = findId('DIR_DE_CARRERA');
+    const secretaria = findId('SECRETARIA');             // Secretaría del Decanato
+    const talento    = findId('TALENTO_HUMANO');         // Dpto. de Talento Humano
+    const salaDoc    = findId('SALA_DOCENTES_001');      // Sala de Docentes 1
     return (
       <>
         {/* Pasillo central (baja por el medio hasta Dirección de Carrera) */}
@@ -295,10 +401,10 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
 
   // Plano propio: Bloque A — Primer Piso
   const renderPlanoA1 = () => {
-    const instituto = findRoom('instituto');
-    const computo   = findRoom('computo') ?? findRoom('14a 101');
-    const bano      = findRoom('baño');
-    const biblio    = findRoom('biblioteca');
+    const instituto = findId('INST_POSTGRADO');
+    const computo   = findId('LAB_14A_101');
+    const bano      = findId('BAÑOS_004');
+    const biblio    = findId('BIBLIOTECA');
     return (
       <>
         {/* Arriba: Instituto (izq) + Lab. Cómputo 14A 101 (der) */}
@@ -325,18 +431,18 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
 
   // Plano propio: Bloque A — Segundo Piso
   const renderPlanoA2 = () => {
-    const lab202  = findRoom('laboratorio 14a 202');
-    const lab201  = findRoom('laboratorio 14a 201');
-    const aula202 = findRoom('aula 14a 202');
-    const aula201 = findRoom('aula 14a 201');
-    const dir     = findRoom('teleinform');   // Dirección de Carrera Teleinformática
-    const bano    = findRoom('baño');          // Baños 006
-    const aula203 = findRoom('aula 14a 203');
-    const aula204 = findRoom('aula 14a 204');
-    const aula205 = findRoom('aula 14a 205');
-    const aula206 = findRoom('aula 14a 206');
-    const salaDoc = findRoom('docentes');      // Sala Docentes 003
-    const reuni   = findRoom('reuni');         // Sala de Reuniones y Tutorías
+    const lab202  = findId('LAB_14A_202');
+    const lab201  = findId('LAB_14A_201');
+    const aula202 = findId('AULA_14A_202');
+    const aula201 = findId('AULA_14A_201');
+    const dir     = findId('DIR_DE_CARRERA_TELEINFORMATICA');
+    const bano    = findId('BAÑOS_006');
+    const aula203 = findId('AULA_14A_203');
+    const aula204 = findId('AULA_14A_204');
+    const aula205 = findId('AULA_14A_205');
+    const aula206 = findId('AULA_14A_206');
+    const salaDoc = findId('SALA_DOCENTES_003');
+    const reuni   = findId('SALA_REUNION_TUTORIAS');
     return (
       <>
         {/* Pasillo central (baja por el medio) */}
@@ -370,11 +476,112 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
     );
   };
 
-  // Chips: grupos predefinidos + tipos presentes en este piso
-  const allFilters = [
-    ...FILTER_GROUPS,
-    ...tiposPresentes.map(t => ({ key: t, label: (TYPE_ICON[t] ?? '') + ' ' + t, types: [t] as TipoEspacio[] })),
-  ].filter((f, i, arr) => arr.findIndex(x => x.key === f.key) === i);
+  // Plano propio: Bloque B — Planta Baja
+  const renderPlanoB0 = () => {
+    const lab001       = findId('LAB_14B_001');      // Laboratorio 14B 001
+    const lab002       = findId('LAB_14B_002');      // Laboratorio 14B 002
+    const bano         = findId('BAÑOS_002');        // Baños 002
+    const conferencias = findId('SALA_CONFERENCIAS'); // Sala de Conferencias (AUDITORIO)
+    const motoche      = findId('SALA_MOTOCHE');     // Sala Motoche (INFORMATIVA)
+    return (
+      <>
+        {/* Pasillo central (baja desde debajo del baño hasta el fondo) */}
+        {CorridorBox({ x: 112, y: 76, w: 66, h: 300 })}
+
+        {/* Arriba al centro: Baños */}
+        {bano && RoomBox(bano, { x: 112, y: 4, w: 66, h: 70 })}
+
+        {/* Arriba: laboratorios (izq y der), altos */}
+        {lab001 && RoomBox(lab001, { x: 4,   y: 4, w: 108, h: 204 })}
+        {lab002 && RoomBox(lab002, { x: 178, y: 4, w: 108, h: 204 })}
+
+        {/* Abajo: Sala de Conferencias (izq) + Sala Motoche (der) */}
+        {conferencias && RoomBox(conferencias, { x: 4,   y: 214, w: 108, h: 162 })}
+        {motoche      && RoomBox(motoche,      { x: 178, y: 214, w: 108, h: 162 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque B — Primer Piso
+  const renderPlanoB1 = () => {
+    const lab101  = findId('LAB_14B_101');   // Laboratorio de Cómputo 14B 101
+    const aula101 = findId('AULA_14B_101');
+    const aula102 = findId('AULA_14B_102');
+    const aula103 = findId('AULA_14B_103');
+    return (
+      <>
+        {/* Pasillo central (completo) */}
+        {CorridorBox({ x: 112, y: 4, w: 66, h: 372 })}
+
+        {/* Izquierda: Lab. Cómputo 14B 101 (arriba) + Aula 14B 101 (abajo) */}
+        {lab101  && RoomBox(lab101,  { x: 4, y: 4,   w: 108, h: 182 })}
+        {aula101 && RoomBox(aula101, { x: 4, y: 190, w: 108, h: 186 })}
+
+        {/* Derecha: Aula 14B 103 (arriba) + Aula 14B 102 (abajo) */}
+        {aula103 && RoomBox(aula103, { x: 178, y: 4,   w: 108, h: 182 })}
+        {aula102 && RoomBox(aula102, { x: 178, y: 190, w: 108, h: 186 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque B — Segundo Piso
+  const renderPlanoB2 = () => {
+    const aula202 = findId('AULA_14B_202');
+    const lab202  = findId('LAB_14B_202');
+    const lab201  = findId('LAB_14B_201');
+    const aula201 = findId('AULA_14B_201');
+    return (
+      <>
+        {/* Pasillo central (completo) */}
+        {CorridorBox({ x: 112, y: 4, w: 66, h: 372 })}
+
+        {/* Izquierda: Aula 14B 202 (arriba) + Laboratorio 14B 201 (abajo) */}
+        {aula202 && RoomBox(aula202, { x: 4, y: 4,   w: 108, h: 182 })}
+        {lab201  && RoomBox(lab201,  { x: 4, y: 190, w: 108, h: 186 })}
+
+        {/* Derecha: Laboratorio 14B 202 (arriba) + Aula 14B 201 (abajo) */}
+        {lab202  && RoomBox(lab202,  { x: 178, y: 4,   w: 108, h: 182 })}
+        {aula201 && RoomBox(aula201, { x: 178, y: 190, w: 108, h: 186 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque C — Planta Baja
+  const renderPlanoC0 = () => {
+    const a006 = findId('AULA_14C_006');
+    const a007 = findId('AULA_14C_007');
+    const a005 = findId('AULA_14C_005');
+    const a004 = findId('AULA_14C_004');
+    const a003 = findId('AULA_14C_003');
+    const bano = findId('BAÑOS_001');   // Baños
+    const fue  = findId('FUESIIST');    // Fueiist - Asociación de Estudiantes
+    const libre = findId('C_PB_LIBRE'); // Bloque vacío asignable por un administrador
+    return (
+      <>
+        {/* Pasillo central */}
+        <View style={[s.corridorBg, rectStyle({ x: 112, y: 4, w: 66, h: 372 })]}>
+          <Text style={s.corridorTxt}>PASILLO</Text>
+        </View>
+
+        {/* Izquierda: 2 aulas, Pasillo de entrada (a la altura del baño) y el
+            bloque vacío "Disponible" abajo (lo asigna un administrador). */}
+        {a006 && RoomBox(a006, { x: 4, y: 4,   w: 108, h: 78 })}
+        {a007 && RoomBox(a007, { x: 4, y: 86,  w: 108, h: 78 })}
+        {PasilloBox('c0-pas', 'Pasillo de entrada', { x: 4, y: 168, w: 108, h: 54 })}
+        {libre && RoomBox(libre, { x: 4, y: 226, w: 108, h: 150 })}
+
+        {/* Derecha: aulas, Baños y FUESIIST */}
+        {a005 && RoomBox(a005, { x: 178, y: 4,   w: 108, h: 78 })}
+        {a004 && RoomBox(a004, { x: 178, y: 86,  w: 108, h: 78 })}
+        {bano && RoomBox(bano, { x: 178, y: 168, w: 108, h: 54 })}
+        {a003 && RoomBox(a003, { x: 178, y: 226, w: 108, h: 70 })}
+        {fue  && RoomBox(fue,  { x: 178, y: 300, w: 108, h: 76 })}
+      </>
+    );
+  };
+
+  // Chips de filtro: solo los que tienen al menos un área en este piso
+  const allFilters = FILTROS.filter(f => porPiso.some(e => matchKey(e, f.key)));
 
   return (
     <SafeAreaView style={s.safe}>
@@ -448,7 +655,12 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
 
               {planoPropio ? (
                 /* ── Plano propio del bloque/piso ── */
-                piso === 'PLANTA BAJA' ? renderPlanoA0()
+                bloque === 'B'
+                  ? (piso === 'PLANTA BAJA' ? renderPlanoB0()
+                      : piso === 'PRIMERA PLANTA' ? renderPlanoB1()
+                      : renderPlanoB2())
+                  : bloque === 'C' ? renderPlanoC0()
+                  : piso === 'PLANTA BAJA' ? renderPlanoA0()
                   : piso === 'PRIMERA PLANTA' ? renderPlanoA1()
                   : renderPlanoA2()
               ) : (
@@ -526,19 +738,89 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
           <View style={[s.detailBar, { backgroundColor: TYPE_COLOR[selRoom.tipo] ?? '#333' }]} />
           <View style={s.detailBody}>
             <View style={{ flex: 1 }}>
-              <Text style={s.detailName}>{selRoom.nombre}</Text>
+              <Text style={s.detailName}>{roomLabel(selRoom)}</Text>
               <Text style={s.detailSub}>
                 {TYPE_ICON[selRoom.tipo]} {selRoom.tipo}
                 {selRoom.responsable ? ` · ${selRoom.responsable}` : ''}
                 {selRoom.activo === false ? ' · INACTIVO' : ''}
               </Text>
             </View>
+            {esAdmin && (
+              <TouchableOpacity onPress={() => abrirEditar(selRoom)} style={s.detailEdit}>
+                <Text style={s.detailEditTxt}>✏️ Editar</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={() => setSelRoom(null)} style={s.detailClose}>
               <Text style={s.detailCloseTxt}>✕</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
+
+      {/* ── Modal de edición (solo administradores) ── */}
+      <Modal
+        visible={!!editRoom}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditRoom(null)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Editar área</Text>
+
+            <Text style={s.modalLabel}>Nombre</Text>
+            <TextInput
+              style={s.modalInput}
+              value={draftNombre}
+              onChangeText={setDraftNombre}
+              placeholder="Ej. Sala de Docentes"
+              placeholderTextColor="#64748B"
+            />
+
+            <Text style={s.modalLabel}>Tipo</Text>
+            <View style={s.modalChips}>
+              {TIPOS_EDITABLES.map(t => (
+                <TouchableOpacity
+                  key={t}
+                  style={[s.modalChip, draftTipo === t && s.modalChipActive]}
+                  onPress={() => setDraftTipo(t)}
+                >
+                  <Text style={[s.modalChipTxt, draftTipo === t && s.modalChipTxtActive]}>
+                    {TYPE_ICON[t]} {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={s.modalLabel}>Responsable</Text>
+            <TextInput
+              style={s.modalInput}
+              value={draftResp}
+              onChangeText={setDraftResp}
+              placeholder="Ej. Gestión Académica"
+              placeholderTextColor="#64748B"
+            />
+
+            <View style={s.modalActivoRow}>
+              <Text style={s.modalLabel}>Zona activa</Text>
+              <Switch value={draftActivo} onValueChange={setDraftActivo} />
+            </View>
+
+            <TouchableOpacity style={s.modalDelete} onPress={eliminarZona} disabled={saving}>
+              <Text style={s.modalDeleteTxt}>🗑️  Eliminar zona (dejar como Disponible)</Text>
+            </TouchableOpacity>
+
+            <View style={s.modalBtns}>
+              <TouchableOpacity style={s.modalCancel} onPress={() => setEditRoom(null)} disabled={saving}>
+                <Text style={s.modalCancelTxt}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.modalSave, saving && { opacity: 0.5 }]} onPress={guardarEdicion} disabled={saving}>
+                <Text style={s.modalSaveTxt}>{saving ? 'Guardando…' : 'Guardar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </SafeAreaView>
   );
@@ -577,6 +859,10 @@ const s = StyleSheet.create({
   colBg:          { position: 'absolute', backgroundColor: '#0F2035' },
   corridorBg:     { position: 'absolute', backgroundColor: '#071220', alignItems: 'center', justifyContent: 'center' },
   corridorTxt:    { color: '#1E3A5F', fontSize: 8, fontWeight: '800', letterSpacing: 2, transform: [{ rotate: '90deg' }] },
+  // Marca de "Entrada" al fondo del pasillo (misma letra que el pasillo, pero horizontal)
+  entradaWrap:    { position: 'absolute', bottom: 8, left: 0, right: 0, alignItems: 'center' },
+  entradaArrow:   { color: '#1E3A5F', fontSize: 14, fontWeight: '800', lineHeight: 16 },
+  entradaTxt:     { color: '#1E3A5F', fontSize: 8, fontWeight: '800', letterSpacing: 2 },
   entradaLabel:   { color: C.sub, fontSize: 10, marginTop: 8 },
 
   cell:         { borderRadius: 3, alignItems: 'center', justifyContent: 'center', padding: 2 },
@@ -610,4 +896,26 @@ const s = StyleSheet.create({
   detailSub:    { fontSize: 11, color: '#475569', marginTop: 3 },
   detailClose:  { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
   detailCloseTxt:{ fontSize: 12, color: '#475569', fontWeight: '700' },
+  detailEdit:   { backgroundColor: '#00A9E0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  detailEditTxt:{ color: '#fff', fontSize: 12, fontWeight: '800' },
+
+  // ── Modal de edición ──
+  modalOverlay:  { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
+  modalCard:     { backgroundColor: C.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, borderTopWidth: 1, borderColor: C.border },
+  modalTitle:    { color: '#fff', fontSize: 17, fontWeight: '900', marginBottom: 14 },
+  modalLabel:    { color: C.sub, fontSize: 12, fontWeight: '700', marginTop: 10, marginBottom: 6 },
+  modalInput:    { backgroundColor: C.card, borderRadius: 10, borderWidth: 1, borderColor: C.border, color: '#fff', fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  modalChips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  modalChip:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  modalChipActive:{ backgroundColor: '#00A9E0', borderColor: '#00A9E0' },
+  modalChipTxt:  { color: C.sub, fontSize: 12, fontWeight: '600' },
+  modalChipTxtActive:{ color: '#fff', fontWeight: '800' },
+  modalActivoRow:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  modalDelete:   { marginTop: 16, paddingVertical: 11, borderRadius: 10, borderWidth: 1, borderColor: '#B71C1C', alignItems: 'center' },
+  modalDeleteTxt:{ color: '#EF5350', fontSize: 13, fontWeight: '700' },
+  modalBtns:     { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+  modalCancel:   { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, backgroundColor: C.card },
+  modalCancelTxt:{ color: C.text, fontSize: 14, fontWeight: '700' },
+  modalSave:     { paddingHorizontal: 20, paddingVertical: 11, borderRadius: 10, backgroundColor: '#00A9E0' },
+  modalSaveTxt:  { color: '#fff', fontSize: 14, fontWeight: '800' },
 });
