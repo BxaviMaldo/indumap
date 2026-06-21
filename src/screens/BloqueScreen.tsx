@@ -65,12 +65,7 @@ const LAYOUT_CONFIG: Record<string, LayoutItem[]> = {
   // 'A-PRIMERA PLANTA' usa un PLANO PROPIO (ver renderPlanoA1 en el componente),
   // por eso no se configura aquí.
 
-  'A-SEGUNDA PLANTA': [
-    { nombre: 'Direcci',                     col: 'I' },  // Dirección de carrera
-    { nombre: 'reuni',                       col: 'I' },  // Sala de reunión
-    { nombre: 'Sala de docentes',            col: 'D' },
-    // Los laboratorios (14A 201-206) no están aquí → se distribuyen automáticamente
-  ],
+  // 'A-SEGUNDA PLANTA' usa un PLANO PROPIO (ver renderPlanoA2 en el componente).
 };
 
 // Una celda del plano: un cuarto real de Firestore o un elemento especial visual
@@ -272,7 +267,8 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
   // ───────────────────────────────────────────────────────────────────────
 
   // ¿Este bloque/piso usa un plano propio en vez del genérico?
-  const planoPropio = bloque === 'A' && piso === 'PRIMERA PLANTA';
+  const planoPropio =
+    bloque === 'A' && (piso === 'PRIMERA PLANTA' || piso === 'SEGUNDA PLANTA');
 
   // Plano propio: Bloque A — Primer Piso
   const renderPlanoA1 = () => {
@@ -300,6 +296,53 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
         {biblio && LinkedRoomBox('a1-bib-l', biblio, { x: 4,   y: 214, w: 108, h: 162 })}
         {biblio && LinkedRoomBox('a1-bib-r', biblio, { x: 178, y: 214, w: 108, h: 162 })}
         {biblio && LinkedRoomBox('a1-bib-c', biblio, { x: 112, y: 320, w: 66,  h: 56 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque A — Segundo Piso
+  const renderPlanoA2 = () => {
+    const lab202  = findRoom('laboratorio 14a 202');
+    const lab201  = findRoom('laboratorio 14a 201');
+    const aula202 = findRoom('aula 14a 202');
+    const aula201 = findRoom('aula 14a 201');
+    const dir     = findRoom('teleinform');   // Dirección de Carrera Teleinformática
+    const bano    = findRoom('baño');          // Baños 006
+    const aula203 = findRoom('aula 14a 203');
+    const aula204 = findRoom('aula 14a 204');
+    const aula205 = findRoom('aula 14a 205');
+    const aula206 = findRoom('aula 14a 206');
+    const salaDoc = findRoom('docentes');      // Sala Docentes 003
+    const reuni   = findRoom('reuni');         // Sala de Reuniones y Tutorías
+    return (
+      <>
+        {/* Pasillo central (baja por el medio) */}
+        <View style={[s.corridorBg, rectStyle({ x: 112, y: 46, w: 66, h: 330 })]}>
+          <Text style={s.corridorTxt}>PASILLO</Text>
+        </View>
+
+        {/* Arriba al centro: Dirección de Carrera */}
+        {dir && RoomBox(dir, { x: 112, y: 4, w: 66, h: 40 })}
+
+        {/* Arriba: 2 áreas por lado (izq laboratorios, der aulas) */}
+        {lab202  && RoomBox(lab202,  { x: 4,   y: 4,  w: 108, h: 70 })}
+        {lab201  && RoomBox(lab201,  { x: 4,   y: 76, w: 108, h: 70 })}
+        {aula202 && RoomBox(aula202, { x: 178, y: 4,  w: 108, h: 70 })}
+        {aula201 && RoomBox(aula201, { x: 178, y: 76, w: 108, h: 70 })}
+
+        {/* En medio: Baños (izq) + Pasillo de entrada (der, de frente al baño) */}
+        {bano && RoomBox(bano, { x: 4, y: 152, w: 108, h: 56 })}
+        {PasilloBox('a2-pas', 'Pasillo de entrada', { x: 178, y: 152, w: 108, h: 56 })}
+
+        {/* Abajo izquierda: 3 aulas iguales + Sala de Reuniones (más chica) */}
+        {aula203 && RoomBox(aula203, { x: 4, y: 214, w: 108, h: 44 })}
+        {aula204 && RoomBox(aula204, { x: 4, y: 258, w: 108, h: 44 })}
+        {aula205 && RoomBox(aula205, { x: 4, y: 302, w: 108, h: 44 })}
+        {reuni   && RoomBox(reuni,   { x: 4, y: 346, w: 108, h: 30 })}
+
+        {/* Abajo derecha: 2 áreas */}
+        {salaDoc && RoomBox(salaDoc, { x: 178, y: 214, w: 108, h: 86 })}
+        {aula206 && RoomBox(aula206, { x: 178, y: 300, w: 108, h: 76 })}
       </>
     );
   };
@@ -382,7 +425,7 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
 
               {planoPropio ? (
                 /* ── Plano propio del bloque/piso ── */
-                renderPlanoA1()
+                piso === 'PRIMERA PLANTA' ? renderPlanoA1() : renderPlanoA2()
               ) : (
                 /* ── Plano genérico de 2 columnas ── */
                 <>
@@ -411,7 +454,7 @@ export default function BloqueScreen({ bloque, onBack }: Props) {
               )}
             </View>
           </View>
-          <Text style={s.entradaLabel}>↓ Entrada principal</Text>
+          {/* <Text style={s.entradaLabel}>↓ Entrada principal</Text> */}
         </View>
 
         {/* Resultado de búsqueda */}
@@ -503,7 +546,7 @@ const s = StyleSheet.create({
   fchipTxt:     { color: C.sub, fontSize: 11, fontWeight: '600' },
   fchipTxtActive:{ color: '#fff', fontWeight: '800' },
 
-  planWrap:       { alignItems: 'center', marginVertical: 8 },
+  planWrap:       { alignItems: 'center', marginVertical: 8, marginTop: 25},
   buildingOutline:{ borderWidth: 2, borderColor: '#2A4A6A', borderRadius: 6, overflow: 'hidden', backgroundColor: '#0B1829' },
   colBg:          { position: 'absolute', backgroundColor: '#0F2035' },
   corridorBg:     { position: 'absolute', backgroundColor: '#071220', alignItems: 'center', justifyContent: 'center' },
@@ -527,7 +570,7 @@ const s = StyleSheet.create({
   resultName:   { color: '#fff', fontSize: 13, fontWeight: '700' },
   resultSub:    { color: C.sub, fontSize: 11, marginTop: 2 },
 
-  legend:       { marginHorizontal: 14, backgroundColor: C.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 8 },
+  legend:       { marginHorizontal: 14, marginTop: 25, backgroundColor: C.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 8 },
   legendTitle:  { color: '#fff', fontSize: 12, fontWeight: '800', marginBottom: 10 },
   legendGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   legendItem:   { flexDirection: 'row', alignItems: 'center', gap: 5, width: '47%' },
