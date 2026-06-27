@@ -38,12 +38,36 @@ export async function sendProvisionalPasswordEmail(
       to: [{ email: toEmail }],
       subject: 'Acceso de administrador — InduMap',
       htmlContent: `
-        <div style="font-family:Arial,sans-serif;color:#001D41;">
-          <h2>Bienvenido a InduMap</h2>
-          <p>Se ha creado una cuenta de <strong>administrador</strong> para ti.</p>
-          <p><strong>Cédula:</strong> ${cedula}</p>
-          <p><strong>Contraseña provisional:</strong> ${tempPassword}</p>
-          <p>Por seguridad, deberás cambiar esta contraseña la primera vez que ingreses a la app.</p>
+        <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:auto;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;background:#ffffff">
+
+          <!-- Encabezado: solo el nombre de la app -->
+          <div style="background:#001D41;padding:26px 20px;text-align:center">
+            <h1 style="color:#ffffff;margin:0;font-size:26px;letter-spacing:1px">Indu<span style="color:#00A9E0">Map</span></h1>
+          </div>
+
+          <!-- Cuerpo -->
+          <div style="padding:28px 26px;color:#1f2937">
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6">
+              Se ha creado una cuenta de <strong style="color:#001D41">administrador</strong> en InduMap para el usuario
+              con cédula <strong style="color:#001D41">${cedula}</strong>. Esta es tu contraseña provisional:
+            </p>
+
+            <div style="background:#F1F5F9;border:1px solid #E2E8F0;border-radius:10px;padding:18px;text-align:center;margin:18px 0">
+              <span style="font-size:28px;font-weight:800;letter-spacing:6px;color:#001D41">${tempPassword}</span>
+            </div>
+
+            <p style="margin:0 0 14px;color:#B71C1C;font-weight:700;font-size:14px">⏱️ Esta contraseña provisional expira en 24 horas.</p>
+
+            <p style="margin:0;font-size:14px;line-height:1.6;color:#475569">
+              Abre la app <strong style="color:#001D41">InduMap</strong> e inicia sesión con tu cédula y esta contraseña.
+              Por seguridad, deberás crear una contraseña personal la primera vez que ingreses.
+            </p>
+          </div>
+
+          <!-- Pie -->
+          <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px;text-align:center">
+            <p style="margin:0;color:#94A3B8;font-size:11px">InduMap · Universidad de Guayaquil — Si no esperabas este correo, ignóralo.</p>
+          </div>
         </div>
       `,
     }),

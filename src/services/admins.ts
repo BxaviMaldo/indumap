@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { db, firebaseConfig } from '../config/firebase';
@@ -100,6 +100,14 @@ export async function registerAdmin(cedula: string, email: string): Promise<{ te
 
 export async function setAdminActivo(cedula: string, activo: boolean): Promise<void> {
   await updateDoc(doc(db, COLLECTION, cedula), { activo });
+}
+
+// Elimina un administrador de la base de datos (borra su doc en Firestore, lo
+// que revoca su acceso porque el login valida primero ese doc). La cuenta de
+// Firebase Auth no se borra aquí: eso requiere el Admin SDK en un backend, que
+// este proyecto no tiene. Igual sin el doc el usuario ya no puede iniciar sesión.
+export async function deleteAdmin(cedula: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTION, cedula));
 }
 
 export async function markPasswordChanged(cedula: string): Promise<void> {

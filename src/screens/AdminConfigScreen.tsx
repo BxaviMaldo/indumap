@@ -4,7 +4,7 @@ import {
   ScrollView, TextInput, SafeAreaView, Switch, Alert, ActivityIndicator,
 } from 'react-native';
 import { getAllEspacios, updateEspacio } from '../services/espacios';
-import { getAllAdmins, registerAdmin, setAdminActivo, EmailSendError, type Admin } from '../services/admins';
+import { getAllAdmins, registerAdmin, setAdminActivo, deleteAdmin, EmailSendError, type Admin } from '../services/admins';
 import type { Espacio, TipoEspacio } from '../types/espacio';
 
 const TIPOS: TipoEspacio[] = [
@@ -167,6 +167,27 @@ export default function AdminConfigScreen({ onBack }: Props) {
     }
   };
 
+  const borrarAdmin = (a: Admin) => {
+    Alert.alert(
+      'Eliminar administrador',
+      `¿Seguro que quieres eliminar al administrador con cédula ${a.cedula}? Perderá el acceso de inmediato.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar', style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAdmin(a.cedula);
+              setAdmins(prev => prev.filter(x => x.cedula !== a.cedula));
+            } catch {
+              Alert.alert('Error', 'No se pudo eliminar el administrador.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={s.safe}>
 
@@ -277,6 +298,9 @@ export default function AdminConfigScreen({ onBack }: Props) {
                   </Text>
                 </View>
                 <Switch value={a.activo} onValueChange={() => toggleAdmin(a)} />
+                <TouchableOpacity style={s.admDelBtn} onPress={() => borrarAdmin(a)}>
+                  <Text style={s.admDelTxt}>🗑</Text>
+                </TouchableOpacity>
               </View>
             ))
           )}
@@ -373,6 +397,8 @@ const s = StyleSheet.create({
   emptyTxt:   { color: C.sub, fontSize: 12, marginHorizontal: 14 },
   adminRow:   { flexDirection: 'row', alignItems: 'center', marginHorizontal: 14, marginBottom: 8, backgroundColor: C.card, borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 12 },
   adminCedula:{ color: '#fff', fontSize: 14, fontWeight: '700' },
+  admDelBtn:  { marginLeft: 10, width: 34, height: 34, borderRadius: 8, borderWidth: 1, borderColor: '#B71C1C', alignItems: 'center', justifyContent: 'center' },
+  admDelTxt:  { fontSize: 15 },
   adminStatus:{ color: C.sub, fontSize: 11, marginTop: 2 },
 
   modalOverlay:{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#00000088', alignItems: 'center', justifyContent: 'center', padding: 20 },
