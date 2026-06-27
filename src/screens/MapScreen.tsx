@@ -522,6 +522,16 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
 
   useEffect(() => { getAllEspacios().then(setEspacios); }, []);
 
+  // Al montar el mapa (incluido al volver de un bloque) reiniciar la cámara a una
+  // vista general donde se ven todos los bloques y las zonas nuevas.
+  useEffect(() => {
+    cam.rotX = -0.5;
+    cam.rotY = 0.3;
+    cam.dist = 62;
+    cam.tx = 0;
+    cam.tz = -4;
+  }, []);
+
   useEffect(() => {
     const q = search.trim().toLowerCase();
     if (!q) { setResults([]); return; }
@@ -555,7 +565,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
           const cyp = (ts[0].pageY + ts[1].pageY) / 2;
           if (pinchD.current === 0) { pinchD.current = d; twoC.current = { x: cxp, y: cyp }; return; }
           cam.dist *= pinchD.current / d;
-          cam.dist = Math.max(8, Math.min(40, cam.dist));
+          cam.dist = Math.max(8, Math.min(75, cam.dist));
           const dcx = cxp - twoC.current.x, dcy = cyp - twoC.current.y;
           const k  = cam.dist * 0.0009;
           const rX = Math.cos(cam.rotY), rZ = -Math.sin(cam.rotY); // derecha
