@@ -6,6 +6,8 @@ export type TipoEspacio =
   | 'INFORMATIVA'
   | 'TALLER'
   | 'AUDITORIO'
+  | 'BODEGA'
+  | 'CENTRO MEDICO'
   | 'ACCESO PRINCIPAL'
   | 'SALIDA / EVACUACIÓN'
   | 'ENTRADA /SALIDA';

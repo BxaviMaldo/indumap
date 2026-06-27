@@ -11,11 +11,12 @@ import { DataTexture, RGBAFormat, RepeatWrapping } from 'three';
 // ─── COLORES DE BLOQUES ────────────────────────────────────────────────────────
 const COLORS: Record<string, string> = {
   A: '#00A9E0', B: '#11806A', C: '#F08D1E', D: '#D5A021', E: '#ad0ca2',
-  BAR: '#8B3A0F', BAÑOS: '#2A6F97',
+  BAR: '#8B3A0F', BAÑOS: '#2A6F97', COMUN: '#2487bf',
 };
 
 // ─── ESTADO DE CÁMARA (module-level para performance) ─────────────────────────
-const cam = { rotX: -0.42, rotY: 0.3, dist: 55 };
+// tx/tz = punto al que mira la cámara (se mueve con el paneo de un dedo).
+const cam = { rotX: -0.42, rotY: 0.3, dist: 55, tx: 0, tz: -2 };
 
 // ─── TEXTURAS PROCEDURALES ────────────────────────────────────────────────────
 // Genera textura DataTexture con ruido, funciona sin archivos de imagen
@@ -204,8 +205,8 @@ function Ground() {
   return (
     <>
       {/* Césped principal */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -18]} receiveShadow>
-        <planeGeometry args={[80, 80]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-5, -0.02, -5]} receiveShadow>
+        <planeGeometry args={[55, 50]} />
         <meshStandardMaterial map={TX.gnd} roughness={0.95} color="#3A8A28" />
       </mesh>
       {/* Camino central N-S */}
@@ -243,8 +244,8 @@ function Ground() {
       ))}
       {/* Caminos lateral bloque D y E*/}
       {[-12].map((x, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0, -10]}>
-          <planeGeometry args={[1.5, 22]} />
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0, -2]}>
+          <planeGeometry args={[1.5, 39]} />
           <meshStandardMaterial map={TX.path} roughness={0.88} />
         </mesh>
       ))}
@@ -256,19 +257,105 @@ function Ground() {
   );
 }
 
-// ─── CONTROLADOR DE CÁMARA ────────────────────────────────────────────────────
+// ─── CONTROLADOR DE CÁMARA (orbita un punto que se puede desplazar/panear) ─────
 function CamCtrl() {
   useFrame(({ camera }) => {
     const cx = Math.cos(-cam.rotX);
     camera.position.set(
-      Math.sin(cam.rotY) * cam.dist * cx,
+      cam.tx + Math.sin(cam.rotY) * cam.dist * cx,
       Math.sin(-cam.rotX) * cam.dist,
-      Math.cos(cam.rotY) * cam.dist * cx,
+      cam.tz + Math.cos(cam.rotY) * cam.dist * cx,
     );
-    camera.lookAt(0, 2.5, -2);
+    camera.lookAt(cam.tx, 2.5, cam.tz);
   });
   return null;
 }
+
+// ─── ÁREAS NUEVAS (parqueaderos, área común, cancha, muro) ────────────────────
+// Parqueadero: asfalto oscuro con franjas blancas.
+function ParkingLot({ pos, w, d, rot = 0, stripes = 6 }: {
+  pos: [number, number, number]; w: number; d: number; rot?: number; stripes?: number;
+}) {
+  return (
+    <group position={pos} rotation={[0, rot, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color="#2c2c30" roughness={0.96} />
+      </mesh>
+      {Array.from({ length: stripes - 1 }, (_, i) => {
+        const x = -w / 2 + (w / stripes) * (i + 1);
+        return (
+          <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, 0]}>
+            <planeGeometry args={[0.12, d * 0.86]} />
+            <meshStandardMaterial color="#e9e9ec" />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// Área común: plaza azul que se resalta (naranja) al seleccionarla.
+function CommonArea({ pos, w, d, sel = false, onPress }: {
+  pos: [number, number, number]; w: number; d: number; sel?: boolean; onPress?: () => void;
+}) {
+  return (
+    <group
+      position={pos}
+      onPointerDown={onPress ? (e) => { e.stopPropagation(); onPress(); } : undefined}
+    >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color={sel ? '#9a5a12' : '#155e87'} roughness={0.9} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <planeGeometry args={[w * 0.9, d * 0.9]} />
+        <meshStandardMaterial color={sel ? '#F08D1E' : '#2487bf'} roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+// Cancha: campo verde con líneas blancas (borde, línea central y círculo).
+function Field({ pos, w, d }: { pos: [number, number, number]; w: number; d: number }) {
+  const bx = (w / 2) * 0.9, bz = (d / 2) * 0.9;
+  return (
+    <group position={pos}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color="#2f7d34" roughness={0.95} />
+      </mesh>
+      {/* Borde */}
+      {([[0, bz, w * 0.9, 0.12], [0, -bz, w * 0.9, 0.12], [bx, 0, 0.12, d * 0.9], [-bx, 0, 0.12, d * 0.9]] as const).map(([x, z, ww, dd], i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, z]}>
+          <planeGeometry args={[ww, dd]} />
+          <meshStandardMaterial color="#eef2ff" />
+        </mesh>
+      ))}
+      {/* Línea central */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <planeGeometry args={[w * 0.9, 0.12]} />
+        <meshStandardMaterial color="#eef2ff" />
+      </mesh>
+      {/* Círculo central */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[1.3, 1.45, 36]} />
+        <meshStandardMaterial color="#eef2ff" />
+      </mesh>
+    </group>
+  );
+}
+
+// Muro: divide el área común de la cancha (sin texto, solo el muro).
+function Wall({ pos, len }: { pos: [number, number, number]; len: number }) {
+  return (
+    <mesh position={pos} castShadow receiveShadow>
+      <boxGeometry args={[0.5, 2.2, len]} />
+      <meshStandardMaterial color="#8a8f98" roughness={0.85} />
+    </mesh>
+  );
+}
+
 
 // ─── BLOQUE E — forma de U, abre hacia +X (hacia A,B,C) ──────────────────────
 function BlockE({ sel, onPress }: { sel: boolean; onPress: () => void }) {
@@ -442,6 +529,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
   }, [search, espacios]);
   const lastT  = useRef({ x: 0, y: 0 });
   const pinchD = useRef(0);
+  const twoC   = useRef({ x: 0, y: 0 });   // centroide de 2 dedos (para rotar)
   const toggle = (id: string) => setSel(p => p === id ? null : id);
 
   const pr = useRef(
@@ -450,23 +538,37 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
       onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 3 || Math.abs(gs.dy) > 3,
       onPanResponderGrant: (e) => {
         const ts = e.nativeEvent.touches;
-        if (ts.length === 2)
-          pinchD.current = Math.hypot(
-            ts[1].pageX - ts[0].pageX,
-            ts[1].pageY - ts[0].pageY,
-          );
+        if (ts.length >= 2) {
+          pinchD.current = Math.hypot(ts[1].pageX - ts[0].pageX, ts[1].pageY - ts[0].pageY);
+          twoC.current = { x: (ts[0].pageX + ts[1].pageX) / 2, y: (ts[0].pageY + ts[1].pageY) / 2 };
+        } else {
+          pinchD.current = 0;
+        }
         lastT.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
       },
       onPanResponderMove: (e) => {
         const ts = e.nativeEvent.touches;
-        if (ts.length === 2) {
-          const d = Math.hypot(ts[1].pageX - ts[0].pageX, ts[1].pageY - ts[0].pageY);
-          if (pinchD.current > 0) {
-            cam.dist *= pinchD.current / d;
-            cam.dist = Math.max(8, Math.min(40, cam.dist));
-          }
+        if (ts.length >= 2) {
+          // 2 dedos: pellizco = zoom, arrastre del centroide = desplazamiento (mover).
+          const d   = Math.hypot(ts[1].pageX - ts[0].pageX, ts[1].pageY - ts[0].pageY);
+          const cxp = (ts[0].pageX + ts[1].pageX) / 2;
+          const cyp = (ts[0].pageY + ts[1].pageY) / 2;
+          if (pinchD.current === 0) { pinchD.current = d; twoC.current = { x: cxp, y: cyp }; return; }
+          cam.dist *= pinchD.current / d;
+          cam.dist = Math.max(8, Math.min(40, cam.dist));
+          const dcx = cxp - twoC.current.x, dcy = cyp - twoC.current.y;
+          const k  = cam.dist * 0.0009;
+          const rX = Math.cos(cam.rotY), rZ = -Math.sin(cam.rotY); // derecha
+          const fX = Math.sin(cam.rotY), fZ = Math.cos(cam.rotY);  // hacia la cámara
+          cam.tx += (-dcx * rX + dcy * fX) * k;
+          cam.tz += (-dcx * rZ + dcy * fZ) * k;
+          cam.tx = Math.max(-40, Math.min(40, cam.tx));
+          cam.tz = Math.max(-50, Math.min(20, cam.tz));
           pinchD.current = d;
+          twoC.current = { x: cxp, y: cyp };
         } else {
+          // 1 dedo: rotación.
+          if (pinchD.current !== 0) { pinchD.current = 0; lastT.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }; return; }
           const dx = e.nativeEvent.pageX - lastT.current.x;
           const dy = e.nativeEvent.pageY - lastT.current.y;
           lastT.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
@@ -513,7 +615,7 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
       </View>
 
       <View style={s.tip}>
-        <Text style={s.tipTxt}>Arrastra para rotar · Pellizca para zoom · Toca un bloque</Text>
+        <Text style={s.tipTxt}>2 dedos mueve · 1 dedo rota · Pellizca para zoom · Toca un bloque</Text>
       </View>
 
       {/* Barra de búsqueda */}
@@ -570,6 +672,18 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
           <CamCtrl />
           <Ground />
 
+          {/* ── Áreas nuevas ── */}
+          {/* Parqueadero 1 — al frente */}
+          <ParkingLot pos={[6, 0, 11]} w={15} d={6} />
+          {/* Parqueadero 2 — a la derecha del Bloque C (igual al 1, girado 90°) */}
+          <ParkingLot pos={[12, 0.04, 0]} w={17} d={6} rot={Math.PI / 2} />
+          {/* Área común + muro + cancha — en la zona trasera */}
+          <CommonArea pos={[-4.5, 0.01, -15]} w={14} d={14} sel={sel === 'COMUN'} onPress={() => toggle('COMUN')} />
+          <Wall pos={[2, 1.1, -15]} len={14} />
+          <Field pos={[10, 0.04, -15]} w={14} d={14} />
+          {/* Área común 2 — pequeña, en el espacio libre entre los caminos laterales */}
+          <CommonArea pos={[-7.6, 0.01, 11.25]} w={7.3} d={6} sel={sel === 'COMUN'} onPress={() => toggle('COMUN')} />
+
           {/* Bloques A, B, C (3 pisos) y D (2 pisos) */}
           {BLOQUES.map(b => (
             <SBlock
@@ -621,11 +735,18 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
             <View style={[s.dot, { backgroundColor: COLORS.BAÑOS }]} />
             <Text style={[s.chipTxt, sel === 'BAÑOS' && { color: '#fff', fontWeight: '700' }]}>Baños</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.chip, sel === 'COMUN' && { borderColor: COLORS.COMUN, backgroundColor: COLORS.COMUN + '38' }]}
+            onPress={() => toggle('COMUN')}
+          >
+            <View style={[s.dot, { backgroundColor: COLORS.COMUN }]} />
+            <Text style={[s.chipTxt, sel === 'COMUN' && { color: '#fff', fontWeight: '700' }]}>Área Común</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Panel inferior al seleccionar desde leyenda */}
-      {sel && (
+      {/* Panel inferior al seleccionar desde leyenda (el área común no abre nada) */}
+      {sel && sel !== 'COMUN' && (
         <View style={s.panel}>
           <View style={[s.pBar, { backgroundColor: COLORS[sel] }]} />
           <View style={s.pBody}>

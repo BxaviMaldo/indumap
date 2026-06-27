@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, TextInput, SafeAreaView, Modal, Alert, Switch,
+  ScrollView, TextInput, SafeAreaView, Modal, Alert, Switch, Image,
 } from 'react-native';
 import { getEspaciosByBloque, updateEspacio } from '../services/espacios';
 import type { Espacio, Piso, TipoEspacio } from '../types/espacio';
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
-const PISOS: Piso[] = ['PLANTA BAJA', 'PRIMERA PLANTA', 'SEGUNDA PLANTA'];
+const PISOS: Piso[] = ['PLANTA BAJA', 'PRIMERA PLANTA', 'SEGUNDA PLANTA', 'PLANTA ALTA'];
 const PISO_LABEL: Record<Piso, string> = {
   'PLANTA BAJA':    'Planta Baja',
   'PRIMERA PLANTA': 'Primer Piso',
@@ -21,16 +21,23 @@ const TYPE_COLOR: Partial<Record<TipoEspacio, string>> = {
   'BAÑOS':              '#00838F',
   'INFORMATIVA':        '#37474F',
   'AUDITORIO':          '#F57C00',
+  'TALLER':             '#C2185B',
+  'OFICINA':            '#455A64',
+  'BODEGA':             '#6D4C41',
+  'CENTRO MEDICO':      '#D32F2F',
 };
 
 const TYPE_ICON: Partial<Record<TipoEspacio, string>> = {
   'AULA': '🎓', 'LABORATORIO': '🔬', 'BAÑOS': '🚻', 'INFORMATIVA': 'ℹ️', 'AUDITORIO': '🎭',
+  'TALLER': '🛠️', 'OFICINA': '🏢', 'BODEGA': '📦', 'CENTRO MEDICO': '🏥',
 };
 
-// Tipos que por ahora NO se muestran (ni en el plano, ni en filtros, ni leyenda).
+// Color de un tipo (con respaldo por si llega un tipo sin color asignado).
+const tipoColor = (t: TipoEspacio) => TYPE_COLOR[t] ?? '#607D8B';
+
+// Tipos que NO se muestran (solo los flujos de entrada/salida y evacuación).
 const HIDDEN_TIPOS: TipoEspacio[] = [
-  'OFICINA', 'TALLER', 'ACCESO PRINCIPAL',
-  'SALIDA / EVACUACIÓN', 'ENTRADA /SALIDA',
+  'ACCESO PRINCIPAL', 'SALIDA / EVACUACIÓN', 'ENTRADA /SALIDA',
 ];
 
 // El nombre que se muestra en el plano: los baños siempre dicen "Baños".
@@ -52,7 +59,10 @@ const matchKey = (e: Espacio, key: string) => {
 };
 
 // Tipos que un administrador puede asignar a un área (los que tienen color/filtro)
-const TIPOS_EDITABLES: TipoEspacio[] = ['AULA', 'LABORATORIO', 'AUDITORIO', 'BAÑOS', 'INFORMATIVA'];
+const TIPOS_EDITABLES: TipoEspacio[] = [
+  'AULA', 'LABORATORIO', 'AUDITORIO', 'BAÑOS', 'INFORMATIVA',
+  'TALLER', 'OFICINA', 'BODEGA', 'CENTRO MEDICO',
+];
 
 // Filtros disponibles (en orden). El icono va dentro de la etiqueta.
 const FILTROS = [
@@ -62,6 +72,10 @@ const FILTROS = [
   { key: 'AUDITORIO',   label: '🎭 Auditorio' },
   { key: 'BAÑOS',       label: '🚻 Baños' },
   { key: 'INFORMATIVA', label: 'ℹ️ Informativa' },
+  { key: 'TALLER',        label: '🛠️ Taller' },
+  { key: 'OFICINA',       label: '🏢 Oficina' },
+  { key: 'BODEGA',        label: '📦 Bodega' },
+  { key: 'CENTRO MEDICO', label: '🏥 Centro Médico' },
 ];
 
 
@@ -116,6 +130,19 @@ function distributeRooms(rooms: Espacio[], key: string) {
 // ─── PLAN 2D — layout rectangular con dos columnas + pasillo central ─────────
 const PLAN_W = 290;
 const PLAN_H = 380;
+
+// Bloque D usa un plano HORIZONTAL (una fila de aulas + escaleras + pasillo
+// abajo) que se desplaza de lado. Por eso tiene su propio lienzo más ancho.
+const D_BOX_W = 125;
+const D_BOX_H = 125;
+const D_PITCH = 130;                    // ancho de caja + separación
+const PLAN_W_D = 4 + D_PITCH * 9;      // 9 cajas (8 aulas + escaleras)
+const PLAN_H_D = D_BOX_H + 56;         // fila + pasillo
+
+// Bloque E — Planta Alta: lienzo HORIZONTAL que entra completo SIN scroll
+// (ancho acotado para que quepa en la pantalla).
+const PLAN_W_EA = 340;
+const PLAN_H_EA = 188;
 
 // Columna izquierda
 const COL_L = { x: 4,   y: 4, w: 108, h: PLAN_H - 8 };
@@ -226,7 +253,7 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
     getEspaciosByBloque(bloque as any).then(setTodos);
   }, [bloque]);
 
-  // Espacios del piso actual (ocultando los tipos que no se usan por ahora)
+  // Espacios del piso actual (ocultando solo los flujos de entrada/salida).
   const porPiso = useMemo(
     () => todos.filter(e => e.piso === piso && !HIDDEN_TIPOS.includes(e.tipo)),
     [todos, piso],
@@ -264,7 +291,7 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
         borderStyle: 'dashed' as const,
       };
     }
-    const bg        = TYPE_COLOR[e.tipo] ?? '#607D8B';
+    const bg        = tipoColor(e.tipo);
     const searchHit = isSearching && highlighted.has(e.id);
     const filterHit = !!tipoFiltro && matchesFilter(e);
     const marked    = searchHit || filterHit;
@@ -308,6 +335,22 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
       <Text style={s.cellTxt} numberOfLines={3}>{roomLabel(e)}</Text>
     </TouchableOpacity>
   );
+  // Igual que RoomBox pero con el texto girado 90° (para columnas angostas).
+  const VRoomBox = (e: Espacio, r: Rect) => (
+    <TouchableOpacity
+      key={e.id}
+      onPress={() => setSelRoom(prev => prev?.id === e.id ? null : e)}
+      style={[s.cell, rectStyle(r), roomStyle(e)]}
+      activeOpacity={0.8}
+    >
+      <Text
+        style={[s.cellTxt, { width: r.h - 8, transform: [{ rotate: '-90deg' }] }]}
+        numberOfLines={2}
+      >
+        {roomLabel(e)}
+      </Text>
+    </TouchableOpacity>
+  );
   const AreaBox = (key: string, label: string, color: string, r: Rect) => (
     <View key={key} style={[s.cell, rectStyle(r), { backgroundColor: color, opacity: 0.9 }]}>
       <Text style={s.cellTxt} numberOfLines={3}>{label}</Text>
@@ -324,6 +367,40 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
     >
       <Text style={s.cellTxt} numberOfLines={3}>{roomLabel(e)}</Text>
     </TouchableOpacity>
+  );
+  // Caja fija "Escaleras" con imagen propia. La imagen se toma de
+  // assets/escaleras.png (reemplázala por la tuya manteniendo ese nombre).
+  const EscalerasBox = (r: Rect) => (
+    <View
+      key="d-escaleras"
+      style={[rectStyle(r), { borderRadius: 6, overflow: 'hidden', backgroundColor: '#0F2035', borderWidth: 1, borderColor: '#2A4A6A' }]}
+    >
+      <Image
+        source={require('../../assets/escaleras.png')}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="cover"
+      />
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#001D41cc', paddingVertical: 2 }}>
+        <Text style={{ color: '#fff', fontSize: 8, fontWeight: '800', textAlign: 'center' }}>Escaleras</Text>
+      </View>
+    </View>
+  );
+  // Variante para el Bloque E: imagen VOLTEADA (mira al otro lado) y la etiqueta
+  // "Escaleras" en vertical sobre el borde derecho.
+  const EscalerasBoxE = (r: Rect) => (
+    <View
+      key="e-escaleras"
+      style={[rectStyle(r), { borderRadius: 6, overflow: 'hidden', backgroundColor: '#0F2035', borderWidth: 1, borderColor: '#2A4A6A', flexDirection: 'row' }]}
+    >
+      <Image
+        source={require('../../assets/escaleras.png')}
+        style={{ flex: 1, height: '100%', transform: [{ scaleX: -1 }] }}
+        resizeMode="cover"
+      />
+      <View style={{ width: 13, backgroundColor: '#001D41cc', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#fff', fontSize: 7, fontWeight: '800', width: r.h - 8, textAlign: 'center', transform: [{ rotate: '-90deg' }] }}>Escaleras</Text>
+      </View>
+    </View>
   );
   const PasilloBox = (key: string, label: string, r: Rect) => (
     <View key={key} style={[s.featurePasillo, rectStyle(r)]}>
@@ -360,9 +437,9 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
   // ───────────────────────────────────────────────────────────────────────
 
   // ¿Este bloque/piso usa un plano propio en vez del genérico?
-  // A y B tienen plano propio en sus tres pisos; C solo en planta baja (por ahora).
+  // A, B y C tienen plano propio en sus tres pisos; E en planta baja y alta.
   const planoPropio =
-    bloque === 'A' || bloque === 'B' || (bloque === 'C' && piso === 'PLANTA BAJA');
+    bloque === 'A' || bloque === 'B' || bloque === 'C' || bloque === 'E';
 
   // Plano propio: Bloque A — Planta Baja
   const renderPlanoA0 = () => {
@@ -580,7 +657,213 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
     );
   };
 
+  // Plano propio: Bloque C — Primer Piso (mismo estilo que la Planta Baja:
+  // 2 columnas + pasillo central + pasillo de entrada).
+  const renderPlanoC1 = () => {
+    const a101 = findId('AULA_14C_101');
+    const a102 = findId('AULA_14C_102');
+    const a103 = findId('AULA_14C_103');
+    const salaDoc = findId('SALA_DOCENTES_002'); // Sala de Docentes
+    const lab101 = findId('LAB_14C_101');
+    const lab102 = findId('LAB_14C_102');
+    const bano = findId('BAÑOS_003');             // Baños
+    const secre = findId('SECRETARIA_SISTEMAS');  // Secretaría de Ing. en Sistemas
+    const vinc = findId('VINCULACION');           // Vinculación con la Comunidad
+    return (
+      <>
+        {/* Pasillo central */}
+        <View style={[s.corridorBg, rectStyle({ x: 112, y: 4, w: 66, h: 372 })]}>
+          <Text style={s.corridorTxt}>PASILLO</Text>
+        </View>
+
+        {/* Izquierda: Laboratorio 14C 102, Aula 14C 102, Pasillo de entrada,
+            Aula 14C 103 y Sala de Docentes abajo. */}
+        {lab102 && RoomBox(lab102, { x: 4, y: 4,   w: 108, h: 78 })}
+        {a102 && RoomBox(a102, { x: 4, y: 86,  w: 108, h: 78 })}
+        {PasilloBox('c1-pas', 'Pasillo de entrada', { x: 4, y: 168, w: 108, h: 54 })}
+        {a103 && RoomBox(a103, { x: 4, y: 226, w: 108, h: 70 })}
+        {salaDoc && RoomBox(salaDoc, { x: 4, y: 300, w: 108, h: 76 })}
+
+        {/* Derecha: Laboratorio 14C 101, Aula 14C 101, Baños, Secretaría y Vinculación */}
+        {lab101 && RoomBox(lab101, { x: 178, y: 4,   w: 108, h: 78 })}
+        {a101 && RoomBox(a101, { x: 178, y: 86,  w: 108, h: 78 })}
+        {bano && RoomBox(bano, { x: 178, y: 168, w: 108, h: 54 })}
+        {secre && RoomBox(secre, { x: 178, y: 226, w: 108, h: 70 })}
+        {vinc && RoomBox(vinc, { x: 178, y: 300, w: 108, h: 76 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque C — Segundo Piso (mismo estilo: 2 columnas + pasillo
+  // central + pasillo de entrada).
+  const renderPlanoC2 = () => {
+    const a201 = findId('AULA_14C_201');
+    const a202 = findId('AULA_14C_202');
+    const a203 = findId('AULA_14C_203');
+    const a204 = findId('AULA_14C_204');
+    const lab201 = findId('LAB_14C_201');
+    const lab202 = findId('LAB_14C_202');
+    const lab203 = findId('LAB_14C_203');
+    const lab204 = findId('LAB_14C_204');
+    const bano = findId('BAÑOS_005');   // Baños
+    return (
+      <>
+        {/* Pasillo central */}
+        <View style={[s.corridorBg, rectStyle({ x: 112, y: 4, w: 66, h: 372 })]}>
+          <Text style={s.corridorTxt}>PASILLO</Text>
+        </View>
+
+        {/* Izquierda: Aula 14C 204, Laboratorio 14C 203, Pasillo de entrada,
+            Aula 14C 201 y Laboratorio 14C 201 abajo. */}
+        {a204 && RoomBox(a204, { x: 4, y: 4,   w: 108, h: 78 })}
+        {lab203 && RoomBox(lab203, { x: 4, y: 86,  w: 108, h: 78 })}
+        {PasilloBox('c2-pas', 'Pasillo de entrada', { x: 4, y: 168, w: 108, h: 54 })}
+        {a201 && RoomBox(a201, { x: 4, y: 226, w: 108, h: 70 })}
+        {lab201 && RoomBox(lab201, { x: 4, y: 300, w: 108, h: 76 })}
+
+        {/* Derecha: Aula 14C 203, Laboratorio 14C 204, Baños, Aula 14C 202 y
+            Laboratorio 14C 202. */}
+        {a203 && RoomBox(a203, { x: 178, y: 4,   w: 108, h: 78 })}
+        {lab204 && RoomBox(lab204, { x: 178, y: 86,  w: 108, h: 78 })}
+        {bano && RoomBox(bano, { x: 178, y: 168, w: 108, h: 54 })}
+        {a202 && RoomBox(a202, { x: 178, y: 226, w: 108, h: 70 })}
+        {lab202 && RoomBox(lab202, { x: 178, y: 300, w: 108, h: 76 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque E — Planta Baja. Dos grandes (Lab. Industrial / Taller)
+  // arriba, pasillo, y abajo columnas angostas + Centro Médico/Oficina + Lab.
+  // de Electricidad, con la caja fija de Escaleras (igual que el Bloque D).
+  const renderPlanoE0 = () => {
+    const labInd = findId('E-PB-LAB-04'); // Laboratorio Industrial
+    const taller = findId('E-PB-TAL-05'); // Taller de soldadura
+    const labCNC = findId('E-PB-LAB-06'); // Laboratorio de CNC
+    const bodega = findId('E-PB-BOD-07'); // Bodega
+    const labRob = findId('E-PB-LAB-03'); // Laboratorio de robótica y Automatismo
+    const cmed   = findId('E-PB-CMED-08'); // Centro Médico
+    const labEle = findId('E-PB-LAB-02'); // Laboratorio de Electricidad y Electrónica
+    const ofi    = findId('E-PB-OFI-01'); // Oficina Ingeniería de Planta
+    return (
+      <>
+        {/* Fila superior: Laboratorio Industrial y Taller de soldadura */}
+        {labInd && RoomBox(labInd, { x: 6, y: 6, w: 120, h: 158 })}
+        {taller && RoomBox(taller, { x: 164, y: 6, w: 120, h: 158 })}
+
+        {/* Pasillo horizontal con la marca de ENTRADA a la derecha (estilo Bloque B) */}
+        <View style={[s.corridorBg, rectStyle({ x: 6, y: 170, w: 278, h: 30 })]}>
+          <Text style={{ color: '#1E3A5F', fontSize: 10, fontWeight: '800', letterSpacing: 5 }}>PASILLO</Text>
+          <View style={{ position: 'absolute', right: 8, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={[s.entradaArrow, { fontSize: 13 }]}>←</Text>
+            <Text style={s.entradaTxt}>ENTRADA</Text>
+          </View>
+        </View>
+
+        {/* Columna izquierda angosta (texto vertical) */}
+        {labCNC && VRoomBox(labCNC, { x: 6,  y: 206, w: 34, h: 168 })}
+        {bodega && VRoomBox(bodega, { x: 44, y: 206, w: 34, h: 168 })}
+        {labRob && RoomBox(labRob, { x: 82, y: 206, w: 54, h: 108 })}
+        {EscalerasBoxE({ x: 82, y: 318, w: 54, h: 56 })}
+
+        {/* Pasillo vertical central con la marca de ENTRADA (↑) al fondo */}
+        <View style={[s.corridorBg, rectStyle({ x: 140, y: 206, w: 24, h: 168 })]}>
+          <View style={s.entradaWrap}>
+            <Text style={s.entradaArrow}>↑</Text>
+            <Text style={s.entradaTxt}>ENTRADA</Text>
+          </View>
+        </View>
+
+        {/* Centro Médico (arriba) */}
+        {cmed && RoomBox(cmed, { x: 168, y: 206, w: 56, h: 62 })}
+
+        {/* Pasillo horizontal entre Centro Médico y Oficina */}
+        <View style={[s.corridorBg, rectStyle({ x: 140, y: 272, w: 84, h: 24 }), { flexDirection: 'row' }]}>
+          <Text style={{ color: '#1E3A5F', fontSize: 9, fontWeight: '800', letterSpacing: 3 }}>PASILLO</Text>
+        </View>
+
+        {/* Oficina (abajo) */}
+        {ofi  && RoomBox(ofi,  { x: 168, y: 300, w: 56, h: 74 })}
+
+        {/* Laboratorio de Electricidad y Electrónica (derecha, alto completo) */}
+        {labEle && RoomBox(labEle, { x: 228, y: 206, w: 56, h: 168 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque E — Planta Alta. Formato HORIZONTAL (entra completo sin
+  // scroll). Arriba: Networking, Baño, Lab. Académico y Sala de Conferencias;
+  // pasillo horizontal al medio; abajo: Aula Producción, Escaleras y 2 Oficinas.
+  const renderPlanoEA = () => {
+    const networking = findId('E-PA-LAB-10'); // Laboratorio de Networking
+    const bano       = findId('E-PA-BAÑO-11'); // Baños
+    const aulaProd   = findId('E-PA-AUL-09');  // Aula Producción
+    const labAcad    = findId('E-PA-LAB-07');  // Laboratorio Académico de Gestión
+    const salaConf   = findId('E-PA-AUD-08');  // Sala de Conferencias
+    const ofi1       = findId('E-PA-OFI-06');  // Oficina
+    const ofi2       = findId('E-PA-OFI-12');  // Oficina (2da)
+    return (
+      <>
+        {/* Columna izquierda: Networking y Aula Producción apiladas (sin pasillo entre ellas) */}
+        {networking && RoomBox(networking, { x: 4, y: 4,  w: 84, h: 90 })}
+        {aulaProd   && RoomBox(aulaProd,   { x: 4, y: 98, w: 84, h: 88 })}
+
+        {/* Fila superior (resto) */}
+        {bano     && RoomBox(bano,     { x: 96,  y: 4, w: 62, h: 50 })}
+        {labAcad  && RoomBox(labAcad,  { x: 184, y: 4, w: 96, h: 74 })}
+        {salaConf && RoomBox(salaConf, { x: 284, y: 4, w: 52, h: 182 })}
+
+        {/* Pasillo vertical central */}
+        <View style={[s.corridorBg, rectStyle({ x: 160, y: 4, w: 22, h: 182 })]}>
+          <Text style={s.corridorTxt}>PASILLO</Text>
+        </View>
+
+        {/* Pasillo horizontal: empieza en la columna de Baños/Escaleras (no bajo Networking/Aula) */}
+        <View style={[s.corridorBg, rectStyle({ x: 96, y: 82, w: 62, h: 18 })]}>
+          <Text style={{ color: '#1E3A5F', fontSize: 7, fontWeight: '800', letterSpacing: 2 }}>PASILLO</Text>
+        </View>
+        <View style={[s.corridorBg, rectStyle({ x: 184, y: 82, w: 96, h: 18 })]}>
+          <Text style={{ color: '#1E3A5F', fontSize: 8, fontWeight: '800', letterSpacing: 3 }}>PASILLO</Text>
+        </View>
+
+        {/* Fila inferior (resto) */}
+        {EscalerasBoxE({ x: 96, y: 104, w: 62, h: 82 })}
+        {ofi1 && RoomBox(ofi1, { x: 184, y: 104, w: 48, h: 82 })}
+        {ofi2 && RoomBox(ofi2, { x: 234, y: 104, w: 46, h: 82 })}
+      </>
+    );
+  };
+
+  // Plano propio: Bloque D — fila horizontal de 8 aulas con "Escaleras" en el
+  // centro (caja fija decorativa) y un pasillo horizontal abajo. Se usa tanto
+  // en la Planta Baja como en la Planta Alta (misma estructura, distintas aulas).
+  // aulaIds: las 8 aulas en orden (4 a la izquierda + 4 a la derecha de Escaleras).
+  const renderPlanoD = (aulaIds: string[]) => {
+    const slot = (i: number) => ({ x: 4 + i * D_PITCH, y: 4, w: D_BOX_W, h: D_BOX_H });
+    const boxes: React.ReactNode[] = [];
+    for (let i = 0; i < 4; i++) {
+      const e = findId(aulaIds[i]);
+      if (e) boxes.push(RoomBox(e, slot(i)));
+    }
+    // Escaleras: caja fija con imagen propia (no está en la base de datos).
+    boxes.push(EscalerasBox(slot(4)));
+    for (let i = 4; i < 8; i++) {
+      const e = findId(aulaIds[i]);
+      if (e) boxes.push(RoomBox(e, slot(i + 1)));
+    }
+    return (
+      <>
+        {boxes}
+        {/* Pasillo horizontal abajo */}
+        <View style={[s.corridorBg, rectStyle({ x: 4, y: D_BOX_H + 8, w: PLAN_W_D - 8, h: 40 })]}>
+          <Text style={{ color: '#1E3A5F', fontSize: 11, fontWeight: '800', letterSpacing: 6 }}>PASILLO</Text>
+        </View>
+      </>
+    );
+  };
+
   // Chips de filtro: solo los que tienen al menos un área en este piso
+  // Solo aparecen los filtros de tipos que existen en el piso actual; así, si un
+  // administrador agrega/cambia una sección, su filtro aparece automáticamente.
   const allFilters = FILTROS.filter(f => porPiso.some(e => matchKey(e, f.key)));
 
   return (
@@ -648,10 +931,30 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
         </ScrollView>
 
         {/* ─── PLANO 2D ─────────────────────────────────────────── */}
-        <View style={s.planWrap}>
-          {/* Contenedor del plano con borde de edificio */}
+        <View style={[s.planWrap, bloque === 'D' && { marginTop: 110 }, bloque === 'E' && piso === 'PLANTA ALTA' && { marginTop: 125 }]}>
+          {bloque === 'D' ? (
+            /* ── Bloque D: plano horizontal con scroll lateral ── */
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              contentContainerStyle={{ paddingHorizontal: 12 }}
+            >
+              <View style={s.buildingOutline}>
+                <View style={{ width: PLAN_W_D, height: PLAN_H_D, position: 'relative' }}>
+                  {piso === 'PLANTA ALTA'
+                    ? renderPlanoD(['D-101', 'D-102', 'D-103', 'D-104', 'D-105', 'D-106', 'D-107', 'D-108'])
+                    : renderPlanoD(['D-001', 'D-002', 'D-003', 'D-004', 'D-005', 'D-006', 'D-007', 'D-008'])}
+                </View>
+              </View>
+            </ScrollView>
+          ) : (
+          /* Contenedor del plano con borde de edificio */
           <View style={s.buildingOutline}>
-            <View style={{ width: PLAN_W, height: PLAN_H, position: 'relative' }}>
+            <View style={{
+              width:  bloque === 'E' && piso === 'PLANTA ALTA' ? PLAN_W_EA : PLAN_W,
+              height: bloque === 'E' && piso === 'PLANTA ALTA' ? PLAN_H_EA : PLAN_H,
+              position: 'relative',
+            }}>
 
               {planoPropio ? (
                 /* ── Plano propio del bloque/piso ── */
@@ -659,7 +962,10 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
                   ? (piso === 'PLANTA BAJA' ? renderPlanoB0()
                       : piso === 'PRIMERA PLANTA' ? renderPlanoB1()
                       : renderPlanoB2())
-                  : bloque === 'C' ? renderPlanoC0()
+                  : bloque === 'C' ? (piso === 'PLANTA BAJA' ? renderPlanoC0()
+                      : piso === 'PRIMERA PLANTA' ? renderPlanoC1()
+                      : renderPlanoC2())
+                  : bloque === 'E' ? (piso === 'PLANTA ALTA' ? renderPlanoEA() : renderPlanoE0())
                   : piso === 'PLANTA BAJA' ? renderPlanoA0()
                   : piso === 'PRIMERA PLANTA' ? renderPlanoA1()
                   : renderPlanoA2()
@@ -691,6 +997,7 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
               )}
             </View>
           </View>
+          )}
           {/* <Text style={s.entradaLabel}>↓ Entrada principal</Text> */}
         </View>
 
@@ -702,7 +1009,7 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
             </Text>
             {porPiso.filter(e => highlighted.has(e.id)).map(e => (
               <TouchableOpacity key={e.id} style={s.resultItem} onPress={() => setSelRoom(e)}>
-                <View style={[s.resultDot, { backgroundColor: TYPE_COLOR[e.tipo] ?? '#888' }]} />
+                <View style={[s.resultDot, { backgroundColor: tipoColor(e.tipo) }]} />
                 <View>
                   <Text style={s.resultName}>{e.nombre}</Text>
                   <Text style={s.resultSub}>{e.tipo} · {PISO_LABEL[e.piso]}</Text>
@@ -710,10 +1017,10 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
               </TouchableOpacity>
             ))}
           </View>
-        )}
+        )}  
 
         {/* Leyenda de tipos */}
-        <View style={s.legend}>
+        <View style={[s.legend, bloque === 'D' && { marginTop: 150 }, bloque === 'E' && piso === 'PLANTA ALTA' && { marginTop: 125 }]}>
           <Text style={s.legendTitle}>Leyenda</Text>
           <View style={s.legendGrid}>
             {Object.entries(TYPE_COLOR).map(([tipo, color]) => (
@@ -735,7 +1042,7 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
       {/* Panel de detalle al seleccionar celda */}
       {selRoom && (
         <View style={s.detail}>
-          <View style={[s.detailBar, { backgroundColor: TYPE_COLOR[selRoom.tipo] ?? '#333' }]} />
+          <View style={[s.detailBar, { backgroundColor: tipoColor(selRoom.tipo) }]} />
           <View style={s.detailBody}>
             <View style={{ flex: 1 }}>
               <Text style={s.detailName}>{roomLabel(selRoom)}</Text>
@@ -854,7 +1161,7 @@ const s = StyleSheet.create({
   fchipTxt:     { color: C.sub, fontSize: 11, fontWeight: '600' },
   fchipTxtActive:{ color: '#fff', fontWeight: '800' },
 
-  planWrap:       { alignItems: 'center', marginVertical: 8, marginTop: 25},
+  planWrap:       { alignItems: 'center', marginVertical: 8, marginTop: 40},
   buildingOutline:{ borderWidth: 2, borderColor: '#2A4A6A', borderRadius: 6, overflow: 'hidden', backgroundColor: '#0B1829' },
   colBg:          { position: 'absolute', backgroundColor: '#0F2035' },
   corridorBg:     { position: 'absolute', backgroundColor: '#071220', alignItems: 'center', justifyContent: 'center' },
@@ -882,7 +1189,7 @@ const s = StyleSheet.create({
   resultName:   { color: '#fff', fontSize: 13, fontWeight: '700' },
   resultSub:    { color: C.sub, fontSize: 11, marginTop: 2 },
 
-  legend:       { marginHorizontal: 14, marginTop: 25, backgroundColor: C.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 8 },
+  legend:       { marginHorizontal: 14, marginTop: 35, backgroundColor: C.card, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 8 },
   legendTitle:  { color: '#fff', fontSize: 12, fontWeight: '800', marginBottom: 10 },
   legendGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   legendItem:   { flexDirection: 'row', alignItems: 'center', gap: 5, width: '47%' },

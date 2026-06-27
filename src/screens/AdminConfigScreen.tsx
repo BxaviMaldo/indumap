@@ -8,8 +8,8 @@ import { getAllAdmins, registerAdmin, setAdminActivo, EmailSendError, type Admin
 import type { Espacio, TipoEspacio } from '../types/espacio';
 
 const TIPOS: TipoEspacio[] = [
-  'AULA', 'LABORATORIO', 'BAÑOS', 'OFICINA', 'INFORMATIVA',
-  'TALLER', 'AUDITORIO', 'ACCESO PRINCIPAL', 'SALIDA / EVACUACIÓN', 'ENTRADA /SALIDA',
+  'AULA', 'LABORATORIO', 'AUDITORIO', 'BAÑOS', 'INFORMATIVA',
+  'TALLER', 'OFICINA', 'BODEGA', 'CENTRO MEDICO',
 ];
 
 type Tab = 'espacios' | 'admins';
