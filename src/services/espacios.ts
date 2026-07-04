@@ -28,6 +28,16 @@ async function writeCache(list: Espacio[]): Promise<void> {
   }
 }
 
+// Sin internet, Firestore no falla rápido: se queda esperando red. Con esto,
+// si no responde en unos segundos, lanzamos error para usar la copia local.
+const NET_TIMEOUT_MS = 3500;
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('sin-conexion')), NET_TIMEOUT_MS)),
+  ]);
+}
+
 // El campo "id" ya no se guarda dentro del documento (es redundante con la
 // clave del documento en Firestore). Lo reconstruimos aquí a partir de d.id.
 function toEspacio(d: { id: string; data: () => any }): Espacio {
@@ -42,7 +52,7 @@ export async function getEspacioById(id: string): Promise<Espacio | null> {
 export async function getEspaciosByBloque(bloque: Bloque): Promise<Espacio[]> {
   try {
     const q = query(collection(db, COLLECTION), where('bloque', '==', bloque));
-    const snap = await getDocs(q);
+    const snap = await withTimeout(getDocs(q));
     const list = snap.docs.map(toEspacio);
     // Mezcla en la caché: reemplaza los de este bloque y conserva los demás.
     const cached = (await readCache()) ?? [];
@@ -68,7 +78,7 @@ export async function getEspaciosByPiso(bloque: Bloque, piso: Piso): Promise<Esp
 
 export async function getAllEspacios(): Promise<Espacio[]> {
   try {
-    const snap = await getDocs(collection(db, COLLECTION));
+    const snap = await withTimeout(getDocs(collection(db, COLLECTION)));
     const list = snap.docs.map(toEspacio);
     await writeCache(list);   // guarda la copia completa para uso offline
     return list;
