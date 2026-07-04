@@ -50,17 +50,22 @@ export async function getEspacioById(id: string): Promise<Espacio | null> {
 }
 
 export async function getEspaciosByBloque(bloque: Bloque): Promise<Espacio[]> {
+  const cached = await readCache();
   try {
     const q = query(collection(db, COLLECTION), where('bloque', '==', bloque));
     const snap = await withTimeout(getDocs(q));
     const list = snap.docs.map(toEspacio);
-    // Mezcla en la caché: reemplaza los de este bloque y conserva los demás.
-    const cached = (await readCache()) ?? [];
-    await writeCache([...cached.filter(e => e.bloque !== bloque), ...list]);
+    if (list.length > 0) {
+      // Solo si vinieron datos reales: mezcla en la caché (reemplaza este bloque).
+      const base = cached ?? [];
+      await writeCache([...base.filter(e => e.bloque !== bloque), ...list]);
+      return list;
+    }
+    // Respuesta vacía (probable sin conexión): usar la copia local.
+    if (cached) return cached.filter(e => e.bloque === bloque);
     return list;
   } catch (err) {
     // Sin internet: devolver desde la copia local (filtrando por bloque).
-    const cached = await readCache();
     if (cached) return cached.filter(e => e.bloque === bloque);
     throw err;
   }
@@ -77,15 +82,19 @@ export async function getEspaciosByPiso(bloque: Bloque, piso: Piso): Promise<Esp
 }
 
 export async function getAllEspacios(): Promise<Espacio[]> {
+  const cached = await readCache();
   try {
     const snap = await withTimeout(getDocs(collection(db, COLLECTION)));
     const list = snap.docs.map(toEspacio);
-    await writeCache(list);   // guarda la copia completa para uso offline
-    return list;
+    if (list.length > 0) {
+      await writeCache(list);   // solo sobrescribe la copia local si vinieron datos
+      return list;
+    }
+    // Respuesta vacía (probable sin conexión): usar la copia local si existe.
+    return cached && cached.length ? cached : list;
   } catch (err) {
     // Sin internet: devolver la copia local si existe.
-    const cached = await readCache();
-    if (cached) return cached;
+    if (cached && cached.length) return cached;
     throw err;
   }
 }
