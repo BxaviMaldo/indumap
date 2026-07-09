@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import LoginScreen from './src/screens/LoginScreen';
 import MapScreen from './src/screens/MapScreen';
@@ -16,6 +16,20 @@ export default function App() {
   const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>('visitante');
   const [cedula, setCedula] = useState('');
   const [bloqueSeleccionado, setBloqueSeleccionado] = useState('');
+
+  // Botón "atrás" del celular (Android): retrocede según la pantalla actual en
+  // vez de cerrar la app. En 'login' devuelve false para dejar salir de la app.
+  useEffect(() => {
+    const onBack = () => {
+      if (pantalla === 'bloque')        { setPantalla('mapa');  return true; }
+      if (pantalla === 'admin-config')  { setPantalla('mapa');  return true; }
+      if (pantalla === 'cambiar-password') { logoutAdmin(); setCedula(''); setPantalla('login'); return true; }
+      if (pantalla === 'mapa')          { logoutAdmin(); setCedula(''); setPantalla('login'); return true; }
+      return false; // en 'login' se permite salir de la app
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [pantalla]);
 
   if (pantalla === 'login') {
     return (

@@ -5,7 +5,7 @@ Aplicación móvil para que **nuevos estudiantes y visitantes** conozcan la
 campus en un **mapa 3D** interactivo y permite explorar cada bloque con sus
 **planos internos 2D**, buscar aulas/laboratorios y ubicar cada espacio.
 
-> Proyecto de fin de curso — **Gestión de Proyectos Informáticos** · Grupo 1
+> Proyecto de fin de curso — **Gestión de Proyectos Informáticos**
 
 ---
 
@@ -186,8 +186,3 @@ Al terminar, EAS entrega un **link** (y un **QR**) para descargar e instalar el
 `.apk` directamente en cualquier Android.
 
 ---
-
-## 👥 Créditos
-
-Grupo 1 — Gestión de Proyectos Informáticos · Facultad de Ingeniería Industrial,
-Universidad de Guayaquil.

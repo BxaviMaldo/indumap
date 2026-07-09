@@ -706,11 +706,11 @@ export default function MapScreen({ tipoUsuario, cedula, onSeleccionarBloque, on
               bays={b.bays}
               hasDoor={b.hasDoor}
               sel={sel === b.id}
-              onPress={() => onSeleccionarBloque(b.id)}
+              onPress={() => toggle(b.id)}
             />
           ))}
           {/* Bloque E — U-shape independiente */}
-          <BlockE sel={sel === 'E'} onPress={() => onSeleccionarBloque('E')} />
+          <BlockE sel={sel === 'E'} onPress={() => toggle('E')} />
           {/* Baños — entre D y E */}
           <Banios sel={sel === 'BAÑOS'} onPress={() => toggle('BAÑOS')} />
           {/* Bar — al lado del Bloque A */}
