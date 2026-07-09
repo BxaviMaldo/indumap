@@ -540,14 +540,14 @@ export default function BloqueScreen({ bloque, onBack, tipoUsuario = 'visitante'
         {bano && RoomBox(bano, { x: 4, y: 152, w: 108, h: 56 })}
         {PasilloBox('a2-pas', 'Pasillo de entrada', { x: 178, y: 152, w: 108, h: 56 })}
 
-        {/* Abajo izquierda: 3 aulas iguales + Sala de Reuniones (más chica) */}
-        {aula203 && RoomBox(aula203, { x: 4, y: 214, w: 108, h: 44 })}
-        {aula204 && RoomBox(aula204, { x: 4, y: 258, w: 108, h: 44 })}
-        {aula205 && RoomBox(aula205, { x: 4, y: 302, w: 108, h: 44 })}
+        {/* Abajo izquierda: 3 aulas iguales + Sala de Reuniones (con separación) */}
+        {aula203 && RoomBox(aula203, { x: 4, y: 214, w: 108, h: 40 })}
+        {aula204 && RoomBox(aula204, { x: 4, y: 258, w: 108, h: 40 })}
+        {aula205 && RoomBox(aula205, { x: 4, y: 302, w: 108, h: 40 })}
         {reuni   && RoomBox(reuni,   { x: 4, y: 346, w: 108, h: 30 })}
 
-        {/* Abajo derecha: 2 áreas */}
-        {salaDoc && RoomBox(salaDoc, { x: 178, y: 214, w: 108, h: 86 })}
+        {/* Abajo derecha: 2 áreas (con separación entre ellas) */}
+        {salaDoc && RoomBox(salaDoc, { x: 178, y: 214, w: 108, h: 82 })}
         {aula206 && RoomBox(aula206, { x: 178, y: 300, w: 108, h: 76 })}
       </>
     );
